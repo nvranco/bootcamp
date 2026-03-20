@@ -1,0 +1,11 @@
+nombre,pais,instagram,tiktok,usuario_meli,x,youtube,facebook,seguidores_instagram,seguidores_tiktok,seguidores_youtube,seguidores_facebook,seguidores_x,categoria,afiliado,id_afiliado,jira,responsable,ultimo_contacto,asignado,contactado,rechazado
+test1,ARG,test1,test1,TEST1,,test1,,3423,41414,3423,,,lifestyle,TRUE,1,TRUE,70121:06a5f854-7183-43e5-a317-3b5a446f03ca,20/03/2026,TRUE,TRUE,FALSE
+test2,ARG,test2,test2,,test2,,,3331,3131,,,test2,home_deco,FALSE,,TRUE,70121:06a5f854-7183-43e5-a317-3b5a446f03ca,19/03/2026,TRUE,TRUE,TRUE
+test3,ARG,test3,,,,,,45645,,,,,fitness,FALSE,,TRUE,70121:06a5f854-7183-43e5-a317-3b5a446f03ca,18/03/2026,TRUE,TRUE,FALSE
+test4,ARG,test4,test4,,,test4,,456,6564,6564,,,travel,FALSE,,TRUE,5f26e76870fb250022df96f8,,TRUE,FALSE,FALSE
+test5,ARG,test5,test5,,,,,5456,3423,,,,education,FALSE,,TRUE,5f26e76870fb250022df96f8,,FALSE,FALSE,FALSE
+test6,ARG,test6,test6,TEST6,,,,645645,2345,,,,lifestyle,TRUE,2,FALSE,,,,,
+test7,BRA,,test7,TEST7,,test7,,,56466,6564,,,home_deco,TRUE,3,FALSE,,,,,
+test8,CHI,test8,test8,TEST8,,,test8,456464,456564,,6564,,fitness,TRUE,4,FALSE,,,,,
+test9,MEX,test9,,TEST9,test9,,,6456,,,,test9,travel,TRUE,5,FALSE,,,,,
+test10,BRA,test10,test10,TEST10,,,,456456,,,,,education,TRUE,6,FALSE,,,,,
