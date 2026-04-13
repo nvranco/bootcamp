@@ -20,237 +20,32 @@ from datetime import datetime, timedelta
 import random
 import os
 
+from config import *   # todos los parámetros viven en config.py
+
 # ================================================================
-# SECCIÓN 1 — Imports & Configuración
+# SECCIÓN 1 — Inicialización
 # ================================================================
 
-SEED = 42
-rng  = np.random.default_rng(SEED)
+rng = np.random.default_rng(SEED)
 random.seed(SEED)
 
-OUTPUT_DIR = 'output_data'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-TODAY      = datetime(2026, 4, 12)
-JIRA_START = TODAY - timedelta(days=90)
-
-PROGRAM_LAUNCH = {
-    'BRA': TODAY - timedelta(days=365 * 3),
-    'MEX': TODAY - timedelta(days=365 * 3),
-    'ARG': TODAY - timedelta(days=365),
-    'CHI': TODAY - timedelta(days=365),
-}
-
-# ── ESCALA (ajustar libremente) ────────────────────────────────
-N_AFFILIATES         = int(35_000  * rng.uniform(0.95, 1.05))  # total de afiliados en el programa
-N_JIRA_TOTAL         = int(20_000 * rng.uniform(0.95, 1.05))   # total de leads en el tablero Jira
-N_PRODUCT_POOL       = int(12_000  * rng.uniform(0.95, 1.05))  # productos en el pool del marketplace
-N_TARGET_ACCESS_LOGS = int(100_000 * rng.uniform(0.95, 1.05))  # volumen total de access logs
-# ──────────────────────────────────────────────────────────────
-
-COUNTRIES = ['BRA', 'MEX', 'ARG', 'CHI']
-COUNTRY_W = [0.30,  0.30,  0.20,  0.20]
-
-CATEGORIES = [
-    'lifestyle', 'home_deco', 'fitness', 'travel',
-    'education', 'tech', 'beauty', 'food', 'other',
-]
-
-PLATFORMS = ['instagram', 'tiktok', 'youtube', 'facebook', 'x', 'other']
-
-MELI_CODE = {'ARG': 'MLA', 'BRA': 'MLB', 'MEX': 'MLM', 'CHI': 'MLC'}
-
-CURRENCY_MAP = {'ARG': 'ARS', 'BRA': 'BRL', 'MEX': 'MXN', 'CHI': 'CLP'}
-
-# Valores ancla de tipo de cambio (moneda local por 1 USD, aprox. 2026)
-FX_ANCHOR = {'ARS': 1100.0, 'BRL': 5.8, 'MXN': 17.5, 'CLP': 960.0}
-
-HUNTER_NAMES = [
-    'Ana González',   'Carlos Mendez',   'Valentina Torres',
-    'Bruno Alves',    'Sofía Ramírez',
-    'Daniela Reyes',  'Tomás Herrera',   'Camila Vargas',
-]
+# Throughput relativo de hunters (vector numpy para np.choice)
 _ht      = np.array([0.70, 0.85, 1.00, 1.25, 1.40, 0.90, 0.75, 0.80])
-HUNTER_W = _ht / _ht.sum()
-
-# Offset individual respecto a la media del equipo (suma al valor temporal)
-# Delay: el equipo arranca en 3.0 días (JIRA_START) y baja a 1.0 día (TODAY)
-HUNTER_DELAY_DELTA = {
-    'Ana González':      -0.6,
-    'Carlos Mendez':     +0.4,
-    'Valentina Torres':  -0.1,
-    'Bruno Alves':       -1.1,
-    'Sofía Ramírez':     +1.4,
-    'Daniela Reyes':     -0.5,
-    'Tomás Herrera':     +0.8,
-    'Camila Vargas':     +0.2,
-}
-# CR: el equipo arranca en 8% (JIRA_START) y sube a 18% (TODAY)
-HUNTER_CR_DELTA = {
-    'Ana González':      -0.06,
-    'Carlos Mendez':     -0.03,
-    'Valentina Torres':   0.00,
-    'Bruno Alves':       +0.03,
-    'Sofía Ramírez':     +0.06,
-    'Daniela Reyes':     +0.04,
-    'Tomás Herrera':     -0.02,
-    'Camila Vargas':     +0.01,
-}
-
-JIRA_FUNNEL = {
-    'pool':        0.60,
-    'asignado':    0.10,
-    'contactado':  0.10,
-    'rechazado':   0.16,
-    'afiliado':    0.04,
-}
-
-PRODUCT_TAXONOMY = {
-    'Electrónica': {
-        'Celulares y Teléfonos': ['Smartphones', 'Accesorios', 'Repuestos'],
-        'Computación':           ['Laptops', 'Tablets', 'Periféricos', 'Almacenamiento'],
-        'TV y Audio':            ['Televisores', 'Auriculares', 'Parlantes', 'Equipos de sonido'],
-        'Cámaras y Accesorios':  ['Cámaras digitales', 'Cámaras de acción', 'Lentes', 'Trípodes'],
-    },
-    'Ropa y Moda': {
-        'Ropa Mujer':         ['Vestidos', 'Blusas', 'Pantalones', 'Ropa deportiva'],
-        'Ropa Hombre':        ['Camisas', 'Pantalones', 'Ropa deportiva', 'Trajes'],
-        'Calzado':            ['Zapatillas', 'Sandalias', 'Botas', 'Zapatos de vestir'],
-        'Accesorios de Moda': ['Bolsos', 'Carteras', 'Cinturones', 'Joyería'],
-    },
-    'Hogar y Deco': {
-        'Muebles':      ['Sillas', 'Mesas', 'Estanterías', 'Sofás'],
-        'Cocina':       ['Electrodomésticos', 'Utensilios', 'Vajilla', 'Almacenamiento'],
-        'Decoración':   ['Cuadros', 'Plantas artificiales', 'Iluminación', 'Textiles'],
-        'Herramientas': ['Manuales', 'Eléctricas', 'Medición', 'Organización'],
-    },
-    'Deportes': {
-        'Fitness':                ['Pesas y Mancuernas', 'Cardio', 'Yoga y Pilates', 'Suplementos'],
-        'Deportes de equipo':     ['Fútbol', 'Básquet', 'Vóley', 'Rugby'],
-        'Deportes al aire libre': ['Ciclismo', 'Running', 'Natación', 'Camping'],
-        'Raquetas':               ['Tenis', 'Pádel', 'Tenis de mesa', 'Squash'],
-    },
-    'Belleza y Salud': {
-        'Cuidado Personal': ['Skincare', 'Cabello', 'Higiene', 'Perfumes'],
-        'Maquillaje':       ['Rostro', 'Ojos', 'Labios', 'Uñas'],
-        'Salud':            ['Vitaminas', 'Equipos médicos', 'Ortopedia', 'Óptica'],
-    },
-    'Alimentos': {
-        'Bebidas':   ['Jugos', 'Bebidas energéticas', 'Café y Té', 'Agua'],
-        'Snacks':    ['Barras de cereal', 'Frutos secos', 'Chips', 'Chocolates'],
-        'Orgánicos': ['Aceites', 'Harinas', 'Legumbres', 'Condimentos'],
-    },
-    'Juguetes y Bebés': {
-        'Juguetes': ['Educativos', 'Acción y aventura', 'Muñecas', 'Juegos de mesa'],
-        'Bebés':    ['Pañales', 'Ropa de bebé', 'Lactancia', 'Sillas y carriolas'],
-    },
-}
+_hunter_w = _ht / _ht.sum()   # pesos normalizados (local, no sobreescribe config)
 
 print('Configuración cargada.')
 print('  Afiliados objetivo :', N_AFFILIATES)
 print('  Leads Jira total   :', N_JIRA_TOTAL)
 print('  Pool de productos  :', N_PRODUCT_POOL)
+print('  SALES_MULTIPLIER   :', SALES_MULTIPLIER)
 print('  Jira operativo     :', JIRA_START.date(), '->', TODAY.date())
 
 
 # ================================================================
 # SECCIÓN 2 — Funciones auxiliares
 # ================================================================
-
-FIRST_NAMES = {
-    'ARG': [
-        'Valentina','Sofía','Martina','Agustina','Lucía','Emma','Florencia',
-        'Antonella','Camila','Renata','Victoria','Zoe','Giuliana','Bianca',
-        'Isabella','Abril','Milagros','Catalina','Morena','Pilar',
-        'Santiago','Mateo','Nicolás','Facundo','Tomás','Julián','Lautaro',
-        'Benjamín','Franco','Thiago','Máximo','Bruno','Leandro','Ezequiel',
-        'Ignacio','Agustín','Ramiro','Iván','Federico','Sebastián',
-    ],
-    'CHI': [
-        'Camila','Javiera','Constanza','Valentina','Isidora','Catalina',
-        'Fernanda','Florencia','Rocío','Macarena','Antonia','Daniela',
-        'Bárbara','Francisca','Carla','Paula','Sofía','Renata',
-        'Diego','Sebastián','Matías','Ignacio','Felipe','Bastián',
-        'Gonzalo','Nicolás','Andrés','Tomás','Cristóbal','Rodrigo',
-        'Pablo','Joaquín','Vicente','Benjamín','Maximiliano','Patricio',
-    ],
-    'BRA': [
-        'Ana','Julia','Larissa','Fernanda','Beatriz','Isabela','Amanda',
-        'Gabriela','Leticia','Rafaela','Camila','Carolina','Juliana',
-        'Mariana','Natalia','Lívia','Bianca','Vanessa','Priscila','Renata',
-        'Lucas','Gabriel','Matheus','Guilherme','Rafael','João','Pedro',
-        'Bruno','Leonardo','Thiago','Vinícius','Felipe','Henrique',
-        'Eduardo','Ricardo','André','Daniel','Leandro','Rodrigo','Diego',
-    ],
-    'MEX': [
-        'Fernanda','Valentina','Mariana','Daniela','Karla','Paola','Sofía',
-        'Isabella','Ximena','Regina','Camila','Andrea','Alejandra',
-        'Valeria','Natalia','Montserrat','Itzel','Brenda','Estefanía','Cecilia',
-        'Diego','Miguel','Jorge','Andrés','Javier','Rodrigo','Alejandro',
-        'Carlos','Eduardo','José','Emilio','Iván','Luis','Héctor',
-        'Arturo','Óscar','Mauricio','Gerardo','Francisco','Manuel',
-    ],
-}
-LAST_NAMES = {
-    'ARG': [
-        # Españoles/nativos
-        'García','Rodríguez','González','Fernández','López','Martínez',
-        'Pérez','Sánchez','Romero','Torres','Díaz','Herrera','Castro',
-        'Morales','Reyes','Gutiérrez','Vargas','Ramos','Ríos','Medina',
-        # Italianos (muy comunes en Argentina)
-        'Rossi','Ferrari','Romano','Colombo','Bianchi','Ricci','Di Marco',
-        'Esposito','Bruno','Mancini','Pellegrini','Gatti','Bassi','Conti',
-        'Russo','De Luca','Lombardi','Gallo','Costa','Greco',
-        # Alemanes / centroeuropeos
-        'Müller','Weber','Hoffmann','Kramer','Fischer','Schulz',
-        # Otros europeos
-        'Dupont','Laurent','Moreau','Ivanov','Novak',
-    ],
-    'CHI': [
-        # Españoles/nativos
-        'González','Muñoz','Rojas','Díaz','Pérez','Soto','Contreras',
-        'Silva','Martínez','Flores','Álvarez','Castro','Reyes','Fuentes',
-        'Herrera','Morales','Espinoza','Vega','Cortés','Jiménez',
-        'Núñez','Pizarro','Valenzuela','Tapia','Acevedo','Miranda',
-        'Sepúlveda','Ríos','Araya','Ibáñez',
-        # Alemanes (fuerte inmigración al sur de Chile)
-        'Müller','Fischer','Hoffmann','Schneider','Becker','Braun',
-        'Koch','Wagner','Richter','Klein',
-        # Otros europeos / árabes
-        'Dupont','Farah','Hatem','Nasser',
-    ],
-    'BRA': [
-        # Portugueses/nativos
-        'Silva','Santos','Oliveira','Souza','Rodrigues','Ferreira',
-        'Alves','Pereira','Lima','Gomes','Ribeiro','Carvalho','Araújo',
-        'Nascimento','Costa','Barbosa','Pinto','Cardoso','Mendes','Moreira',
-        'Cavalcanti','Ramos','Correia','Teixeira','Nunes','Machado',
-        # Italianos (muy comunes en São Paulo / Sul)
-        'Rossi','Ferrari','Bianchi','Romano','Conti','Greco',
-        'Lombardi','Russo','De Luca','Ricci',
-        # Alemanes (muy comunes en RS, SC, PR)
-        'Müller','Fischer','Schneider','Hoffmann','Becker','Braun',
-        'Koch','Wagner','Richter','Klein',
-        # Japoneses (mayor comunidad fuera de Japón está en São Paulo)
-        'Nakamura','Yamamoto','Suzuki','Tanaka','Watanabe',
-        # Árabes (Líbano / Siria)
-        'Nasser','Farah','Haddad',
-    ],
-    'MEX': [
-        # Españoles/nativos
-        'García','Martínez','Hernández','López','González','Pérez',
-        'Sánchez','Ramírez','Torres','Flores','Morales','Reyes','Cruz',
-        'Vargas','Castillo','Romero','Gutiérrez','Díaz','Jiménez','Ortega',
-        'Medina','Chávez','Mendoza','Ramos','Herrera','Ruiz','Vázquez',
-        'Navarro','Salinas','Delgado',
-        # Árabes (comunidad libanesa/siria muy presente en México)
-        'Nasser','Farah','Haddad','Hatem','Kuri','Harb',
-        # Europeos varios
-        'Weber','Hoffmann','Dupont','Moreau',
-        # Asiáticos (comunidad china en Baja California, Sonora, etc.)
-        'Wong','Chan','Lee',
-    ],
-}
 
 _ACCENT = str.maketrans({
     'á':'a','é':'e','í':'i','ó':'o','ú':'u',
@@ -311,6 +106,12 @@ def make_product_title(cat2, cat3):
 def make_seller_id():
     return int(rng.integers(10_000_000, 99_999_999))
 
+def rand_price(country):
+    """Precio lognormal con clamp duro. Mayoría baratos, cola larga hacia caros."""
+    mu, sigma = PRICE_LOGNORMAL[country]
+    lo, hi    = PRICE_CLAMP[country]
+    return float(np.clip(np.round(rng.lognormal(mean=mu, sigma=sigma), 2), lo, hi))
+
 print('Helpers listos.')
 
 
@@ -323,8 +124,6 @@ JIRA_PERIOD_WEEKS = JIRA_PERIOD_DAYS / 7.0
 
 # ── Throughput de hunters: convergen de 50 → 100 contactos/semana ────────────
 # Capacidad total = promedio 75/sem × semanas del período × factor de peso relativo
-HUNTER_WEEKLY_RATE_AVG = 75.0
-HUNTER_MAX_QUEUE       = 100   # máx leads en 'asignado' por hunter al cierre del período
 _mean_w = float(np.mean(_ht))
 HUNTER_CAPACITY = {
     name: int(HUNTER_WEEKLY_RATE_AVG * JIRA_PERIOD_WEEKS * (_ht[i] / _mean_w))
@@ -336,7 +135,7 @@ raw_leads = []
 for i in range(N_JIRA_TOTAL):
     country             = str(rng.choice(COUNTRIES, p=COUNTRY_W))
     first, last, nombre = random_name(country)
-    category            = random.choice(CATEGORIES)
+    category            = random.choices(CATEGORIES, weights=CATEGORY_W)[0]
 
     has_ig = random.random() < 0.85
     has_tt = random.random() < 0.72
@@ -349,7 +148,7 @@ for i in range(N_JIRA_TOTAL):
         hunter_idx       = None
         fecha_asignacion = None
     else:
-        hunter_idx       = int(rng.choice(len(HUNTER_NAMES), p=HUNTER_W))
+        hunter_idx       = int(rng.choice(len(HUNTER_NAMES), p=_hunter_w))
         # Distribución sesgada hacia fechas recientes para reflejar ramp-up del equipo
         u1, u2           = float(rng.random()), float(rng.random())
         t_frac           = max(u1, u2)   # densidad 2t: más leads en los últimos meses
@@ -498,7 +297,7 @@ for i in range(n_organic):
         'MELI_USERNAME': username,
         'MELI_USER_ID':  uid,
         'COUNTRY':       country,
-        'CATEGORY':      random.choice(CATEGORIES),
+        'CATEGORY':      random.choices(CATEGORIES, weights=CATEGORY_W)[0],
         '_joined':       joined,
         '_first':        first,
         '_last':         last,
@@ -516,23 +315,6 @@ print('Total afiliados base   :', len(df_affiliates))
 # SECCIÓN 5 — FACTS_REGISTERED_SOCIAL_MEDIA
 #             + backfill IG/TikTok en df_affiliates → DIM_AFFILIATES
 # ================================================================
-
-PLAT_PROB = {
-    'instagram': 0.85,
-    'tiktok':    0.72,
-    'youtube':   0.32,
-    'facebook':  0.28,
-    'x':         0.22,
-    'other':     0.08,
-}
-PLAT_URL_TPL = {
-    'instagram': 'https://instagram.com/',
-    'tiktok':    'https://tiktok.com/@',
-    'youtube':   'https://youtube.com/@',
-    'facebook':  'https://facebook.com/',
-    'x':         'https://x.com/',
-    'other':     'https://linktr.ee/',
-}
 
 sm_records = []
 sm_id_seq  = [1]
@@ -682,9 +464,8 @@ print(df_facts_jira[df_facts_jira['HUNTER'].notna()]['HUNTER'].value_counts().to
 # ================================================================
 
 # ── Fase 1: Pool de productos ──────────────────────────────────────────────────
-cat1_list    = list(PRODUCT_TAXONOMY.keys())
-cat1_weights = np.array([len(v) for v in PRODUCT_TAXONOMY.values()], dtype=float)
-cat1_weights /= cat1_weights.sum()
+cat1_list    = list(PRODUCT_CAT1_W.keys())
+cat1_weights = list(PRODUCT_CAT1_W.values())
 
 product_records = []
 used_pids       = set()
@@ -866,14 +647,7 @@ print('Registros access_logs  :', f'{len(df_access_logs):,}')
 # SECCIÓN 9 — FACTS_AFFILIATES_MARKETPLACE_SALES (vectorizado)
 # ================================================================
 
-CONVERSION_RATE = 0.030
-
-PRICE_RANGES = {
-    'ARG': (3_000,   300_000),
-    'BRA': (   30,     3_000),
-    'MEX': (  150,    15_000),
-    'CHI': (2_000,   200_000),
-}
+effective_cr = CONVERSION_RATE * SALES_MULTIPLIER   # tasa efectiva de conversión
 
 url_to_country = (
     df_urls[['URL', 'AFFILIATE_ID']]
@@ -885,7 +659,7 @@ url_to_country = (
 url_to_pid = df_urls.set_index('URL')['MARKETPLACE_PRODUCT_ID'].to_dict()
 url_to_aid = df_urls.set_index('URL')['AFFILIATE_ID'].to_dict()
 
-sale_mask     = rng.random(len(df_access_logs)) < CONVERSION_RATE
+sale_mask     = rng.random(len(df_access_logs)) < effective_cr
 df_sales_base = df_access_logs[sale_mask].copy().reset_index(drop=True)
 
 df_sales_base['ACCESS_DATETIME']  = pd.to_datetime(df_sales_base['ACCESS_DATETIME'])
@@ -896,10 +670,12 @@ df_sales_base['PURCHASE_DATETIME'] = (
 
 df_sales_base['COUNTRY'] = df_sales_base['URL'].map(url_to_country).fillna('BRA')
 prices = np.zeros(len(df_sales_base))
-for country, (lo, hi) in PRICE_RANGES.items():
-    mask = (df_sales_base['COUNTRY'] == country).values
+for country, (mu, sigma) in PRICE_LOGNORMAL.items():
+    lo, hi = PRICE_CLAMP[country]
+    mask   = (df_sales_base['COUNTRY'] == country).values
     if mask.sum() > 0:
-        prices[mask] = np.round(rng.uniform(lo, hi, size=int(mask.sum())), 2)
+        raw           = rng.lognormal(mean=mu, sigma=sigma, size=int(mask.sum()))
+        prices[mask]  = np.clip(np.round(raw, 2), lo, hi)
 df_sales_base['PRICE'] = prices
 
 df_sales_base['AFFILIATE_ID']           = df_sales_base['URL'].map(url_to_aid)
@@ -921,8 +697,8 @@ real_cr = round(100 * len(df_facts_sales) / len(df_access_logs), 1)
 print('Ventas orgánicas       :', f'{len(df_facts_sales):,}', f'(conv. rate {real_cr}%)')
 
 # ── Ventas garantizadas para afiliados Jira en su primera semana ──────────────
-JIRA_SALES_MIN = 5
-JIRA_SALES_MAX = 20
+_jira_min = max(1, int(JIRA_SALES_MIN * SALES_MULTIPLIER))
+_jira_max = max(_jira_min + 1, int(JIRA_SALES_MAX * SALES_MULTIPLIER))
 
 jira_aff_ids   = set(df_affiliates[df_affiliates['_source'] == 'jira']['AFFILIATE_ID'])
 aff_joined_map = df_affiliates.set_index('AFFILIATE_ID')['_joined'].to_dict()
@@ -941,7 +717,7 @@ jira_sales_records = []
 for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
     joined         = aff_joined_map[aff_id]
     first_week_end = min(joined + timedelta(days=7), TODAY)
-    n_sales        = int(rng.integers(JIRA_SALES_MIN, JIRA_SALES_MAX + 1))
+    n_sales        = int(rng.integers(_jira_min, _jira_max + 1))
 
     for _ in range(n_sales):
         url_row  = group.sample(1).iloc[0]
@@ -949,8 +725,7 @@ for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
         pid      = url_row['MARKETPLACE_PRODUCT_ID']
         country  = url_to_country.get(url, 'BRA')
         currency = CURRENCY_MAP[country]
-        lo, hi   = PRICE_RANGES[country]
-        price    = round(float(rng.uniform(lo, hi)), 2)
+        price    = rand_price(country)
 
         days_range  = max((first_week_end - joined).days, 1)
         purchase_dt = joined + timedelta(

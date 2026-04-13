@@ -18,58 +18,6 @@ Afiliado se registra → publica links → usuarios hacen clic → se generan ve
 
 ---
 
-## Universo de datos
-
-| Dimensión | Valor |
-|---|---|
-| Fecha de corte | 2026-04-12 |
-| Países | ARG · BRA · CHI · MEX |
-| Monedas | ARS · BRL · CLP · MXN |
-| Afiliados activos | ~36 000 |
-| Links de afiliado | ~526 000 |
-| Ventas registradas | ~17 500 |
-
----
-
-## Diagrama de relaciones
-
-```
-DIM_AFFILIATES_MARKETPLACE_PRODUCTS
-  │  MARKETPLACE_PRODUCT_ID
-  │
-  ├──────────────────────────────────────────────┐
-  │                                              │
-FACTS_MARKETPLACE_AFFILIATE_URLS          FACTS_AFFILIATES_MARKETPLACE_SALES
-  │  URL (PK)           AFFILIATE_ID ──┐    URL · AFFILIATE_ID · MARKETPLACE_PRODUCT_ID
-  │  MARKETPLACE_PRODUCT_ID            │    BUYER_MELI_USER_ID · PURCHASE_DATETIME
-  │  CREATED_AT · CLOSED_AT            │    COUNTRY · CURRENCY · PRICE
-  │                                    │
-  │                              DIM_AFFILIATES
-FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS   AFFILIATE_ID (PK)
-  URL · MELI_USERNAME · ACCESS_DATETIME    MELI_USERNAME · MELI_USER_ID
-                                           AFFILIATED_AT · COUNTRY · CATEGORY
-                                           INSTAGRAM_HANDLE · INSTAGRAM_FOLLOWER_COUNT
-                                           TIKTOK_HANDLE · TIKTOK_FOLLOWER_COUNT
-                                                │
-                                     FACTS_REGISTERED_SOCIAL_MEDIA
-                                       SM_ID · AFFILIATE_ID
-                                       SOCIAL_MEDIA · URL · FOLLOWERS
-```
-
-**Claves de join más usadas**
-
-| Desde | Campo | Hacia |
-|---|---|---|
-| `FACTS_MARKETPLACE_AFFILIATE_URLS` | `AFFILIATE_ID` | `DIM_AFFILIATES` |
-| `FACTS_MARKETPLACE_AFFILIATE_URLS` | `MARKETPLACE_PRODUCT_ID` | `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
-| `FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS` | `URL` | `FACTS_MARKETPLACE_AFFILIATE_URLS` |
-| `FACTS_AFFILIATES_MARKETPLACE_SALES` | `URL` | `FACTS_MARKETPLACE_AFFILIATE_URLS` |
-| `FACTS_AFFILIATES_MARKETPLACE_SALES` | `AFFILIATE_ID` | `DIM_AFFILIATES` |
-| `FACTS_AFFILIATES_MARKETPLACE_SALES` | `MARKETPLACE_PRODUCT_ID` | `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
-| `FACTS_REGISTERED_SOCIAL_MEDIA` | `AFFILIATE_ID` | `DIM_AFFILIATES` |
-
----
-
 ## Tablas
 
 ### `DIM_AFFILIATES`
@@ -88,7 +36,7 @@ Dimensión maestra de afiliados. Una fila por afiliado.
 | `TIKTOK_HANDLE` | STRING | Handle de TikTok (sin `@`), puede ser NULL |
 | `TIKTOK_FOLLOWER_COUNT` | FLOAT | Seguidores en TikTok |
 
-**Valores posibles de `CATEGORY`:** `lifestyle` · `home_deco` · `fitness` · `travel` · `education` · `tech` · `beauty` · `food` · `other`
+**Valores posibles de `CATEGORY`:** `lifestyle` · `beauty` · `fitness` · `tech` · `food` · `travel` · `home_deco` · `education` · `other`
 
 ---
 
@@ -175,61 +123,3 @@ Catálogo de productos del Marketplace referenciados por los links de afiliado.
 | `OPINIONS` | INTEGER | Cantidad de opiniones recibidas |
 
 **Categorías nivel 1:** `Electrónica` · `Ropa y Moda` · `Hogar y Deco` · `Deportes` · `Belleza y Salud` · `Alimentos` · `Juguetes y Bebés`
-
----
-
-## Consultas de referencia
-
-```sql
--- Ventas totales por afiliado (en moneda local)
-SELECT
-    a.AFFILIATE_ID,
-    a.MELI_USERNAME,
-    a.COUNTRY,
-    COUNT(*)        AS ventas,
-    SUM(s.PRICE)    AS ingresos
-FROM DW.FACTS_AFFILIATES_MARKETPLACE_SALES s
-JOIN DW.DIM_AFFILIATES a USING (AFFILIATE_ID)
-GROUP BY 1, 2, 3
-ORDER BY ventas DESC;
-
-
--- Tasa de conversión por link (clics → compras)
-SELECT
-    u.URL,
-    u.AFFILIATE_ID,
-    COUNT(DISTINCT a.ACCESS_DATETIME)   AS clics,
-    COUNT(DISTINCT s.PURCHASE_DATETIME) AS ventas,
-    SAFE_DIVIDE(
-        COUNT(DISTINCT s.PURCHASE_DATETIME),
-        COUNT(DISTINCT a.ACCESS_DATETIME)
-    ) AS conversion_rate
-FROM DW.FACTS_MARKETPLACE_AFFILIATE_URLS u
-LEFT JOIN DW.FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS a USING (URL)
-LEFT JOIN DW.FACTS_AFFILIATES_MARKETPLACE_SALES       s USING (URL)
-GROUP BY 1, 2;
-
-
--- Top productos por cantidad de links de afiliado activos
-SELECT
-    p.TITLE,
-    p.CATEGORY_AGG_1,
-    COUNT(*) AS links_activos
-FROM DW.FACTS_MARKETPLACE_AFFILIATE_URLS u
-JOIN DW.DIM_AFFILIATES_MARKETPLACE_PRODUCTS p USING (MARKETPLACE_PRODUCT_ID)
-WHERE u.CLOSED_AT IS NULL
-GROUP BY 1, 2
-ORDER BY links_activos DESC
-LIMIT 20;
-
-
--- Afiliados con redes sociales registradas (todas las plataformas)
-SELECT
-    a.MELI_USERNAME,
-    a.COUNTRY,
-    sm.SOCIAL_MEDIA,
-    sm.FOLLOWERS
-FROM DW.DIM_AFFILIATES a
-JOIN DW.FACTS_REGISTERED_SOCIAL_MEDIA sm USING (AFFILIATE_ID)
-ORDER BY sm.FOLLOWERS DESC;
-```
