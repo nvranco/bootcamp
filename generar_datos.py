@@ -31,7 +31,7 @@ random.seed(SEED)
 OUTPUT_DIR = 'output_data'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-TODAY      = datetime(2026, 8, 1)
+TODAY      = datetime(2026, 4, 12)
 JIRA_START = TODAY - timedelta(days=90)
 
 PROGRAM_LAUNCH = {
@@ -42,10 +42,10 @@ PROGRAM_LAUNCH = {
 }
 
 # ── ESCALA (ajustar libremente) ────────────────────────────────
-N_AFFILIATES         = 5_000        # total de afiliados en el programa
-N_JIRA_TOTAL         = 1_000      # total de leads en el tablero Jira
-N_PRODUCT_POOL       = 10_000     # productos en el pool del marketplace
-N_TARGET_ACCESS_LOGS = 75_000     # volumen total de access logs (ajustar libremente)
+N_AFFILIATES         = int(35_000  * rng.uniform(0.95, 1.05))  # total de afiliados en el programa
+N_JIRA_TOTAL         = int(20_000 * rng.uniform(0.95, 1.05))   # total de leads en el tablero Jira
+N_PRODUCT_POOL       = int(12_000  * rng.uniform(0.95, 1.05))  # productos en el pool del marketplace
+N_TARGET_ACCESS_LOGS = int(100_000 * rng.uniform(0.95, 1.05))  # volumen total de access logs
 # ──────────────────────────────────────────────────────────────
 
 COUNTRIES = ['BRA', 'MEX', 'ARG', 'CHI']
@@ -66,12 +66,36 @@ CURRENCY_MAP = {'ARG': 'ARS', 'BRA': 'BRL', 'MEX': 'MXN', 'CHI': 'CLP'}
 FX_ANCHOR = {'ARS': 1100.0, 'BRL': 5.8, 'MXN': 17.5, 'CLP': 960.0}
 
 HUNTER_NAMES = [
-    'Ana González', 'Carlos Mendez', 'Valentina Torres',
-    'Bruno Alves',  'Sofía Ramírez',
+    'Ana González',   'Carlos Mendez',   'Valentina Torres',
+    'Bruno Alves',    'Sofía Ramírez',
+    'Daniela Reyes',  'Tomás Herrera',   'Camila Vargas',
 ]
-_ht       = np.array([0.70, 0.85, 1.00, 1.25, 1.40])
-HUNTER_W  = _ht / _ht.sum()
-HUNTER_CR = [0.14, 0.17, 0.20, 0.23, 0.26]
+_ht      = np.array([0.70, 0.85, 1.00, 1.25, 1.40, 0.90, 0.75, 0.80])
+HUNTER_W = _ht / _ht.sum()
+
+# Offset individual respecto a la media del equipo (suma al valor temporal)
+# Delay: el equipo arranca en 3.0 días (JIRA_START) y baja a 1.0 día (TODAY)
+HUNTER_DELAY_DELTA = {
+    'Ana González':      -0.6,
+    'Carlos Mendez':     +0.4,
+    'Valentina Torres':  -0.1,
+    'Bruno Alves':       -1.1,
+    'Sofía Ramírez':     +1.4,
+    'Daniela Reyes':     -0.5,
+    'Tomás Herrera':     +0.8,
+    'Camila Vargas':     +0.2,
+}
+# CR: el equipo arranca en 8% (JIRA_START) y sube a 18% (TODAY)
+HUNTER_CR_DELTA = {
+    'Ana González':      -0.06,
+    'Carlos Mendez':     -0.03,
+    'Valentina Torres':   0.00,
+    'Bruno Alves':       +0.03,
+    'Sofía Ramírez':     +0.06,
+    'Daniela Reyes':     +0.04,
+    'Tomás Herrera':     -0.02,
+    'Camila Vargas':     +0.01,
+}
 
 JIRA_FUNNEL = {
     'pool':        0.60,
@@ -134,24 +158,98 @@ print('  Jira operativo     :', JIRA_START.date(), '->', TODAY.date())
 # ================================================================
 
 FIRST_NAMES = {
-    'ARG': ['Valentina','Sofía','Martina','Agustina','Lucía',
-            'Santiago','Mateo','Nicolás','Facundo','Tomás','Emma','Julián','Lautaro'],
-    'CHI': ['Camila','Javiera','Constanza','Valentina','Isidora',
-            'Diego','Sebastián','Matías','Ignacio','Felipe','Catalina','Bastián'],
-    'BRA': ['Ana','Julia','Larissa','Fernanda','Beatriz',
-            'Lucas','Gabriel','Matheus','Guilherme','Rafael','Isabela','João','Pedro'],
-    'MEX': ['Fernanda','Valentina','Mariana','Daniela','Karla',
-            'Diego','Miguel','Jorge','Andrés','Javier','Paola','Rodrigo'],
+    'ARG': [
+        'Valentina','Sofía','Martina','Agustina','Lucía','Emma','Florencia',
+        'Antonella','Camila','Renata','Victoria','Zoe','Giuliana','Bianca',
+        'Isabella','Abril','Milagros','Catalina','Morena','Pilar',
+        'Santiago','Mateo','Nicolás','Facundo','Tomás','Julián','Lautaro',
+        'Benjamín','Franco','Thiago','Máximo','Bruno','Leandro','Ezequiel',
+        'Ignacio','Agustín','Ramiro','Iván','Federico','Sebastián',
+    ],
+    'CHI': [
+        'Camila','Javiera','Constanza','Valentina','Isidora','Catalina',
+        'Fernanda','Florencia','Rocío','Macarena','Antonia','Daniela',
+        'Bárbara','Francisca','Carla','Paula','Sofía','Renata',
+        'Diego','Sebastián','Matías','Ignacio','Felipe','Bastián',
+        'Gonzalo','Nicolás','Andrés','Tomás','Cristóbal','Rodrigo',
+        'Pablo','Joaquín','Vicente','Benjamín','Maximiliano','Patricio',
+    ],
+    'BRA': [
+        'Ana','Julia','Larissa','Fernanda','Beatriz','Isabela','Amanda',
+        'Gabriela','Leticia','Rafaela','Camila','Carolina','Juliana',
+        'Mariana','Natalia','Lívia','Bianca','Vanessa','Priscila','Renata',
+        'Lucas','Gabriel','Matheus','Guilherme','Rafael','João','Pedro',
+        'Bruno','Leonardo','Thiago','Vinícius','Felipe','Henrique',
+        'Eduardo','Ricardo','André','Daniel','Leandro','Rodrigo','Diego',
+    ],
+    'MEX': [
+        'Fernanda','Valentina','Mariana','Daniela','Karla','Paola','Sofía',
+        'Isabella','Ximena','Regina','Camila','Andrea','Alejandra',
+        'Valeria','Natalia','Montserrat','Itzel','Brenda','Estefanía','Cecilia',
+        'Diego','Miguel','Jorge','Andrés','Javier','Rodrigo','Alejandro',
+        'Carlos','Eduardo','José','Emilio','Iván','Luis','Héctor',
+        'Arturo','Óscar','Mauricio','Gerardo','Francisco','Manuel',
+    ],
 }
 LAST_NAMES = {
-    'ARG': ['García','Rodríguez','González','Fernández','López',
-            'Martínez','Pérez','Sánchez','Romero','Torres','Díaz'],
-    'CHI': ['González','Muñoz','Rojas','Díaz','Pérez',
-            'Soto','Contreras','Silva','Martínez','Flores','Álvarez'],
-    'BRA': ['Silva','Santos','Oliveira','Souza','Rodrigues',
-            'Ferreira','Alves','Pereira','Lima','Gomes','Ribeiro'],
-    'MEX': ['García','Martínez','Hernández','López','González',
-            'Pérez','Sánchez','Ramírez','Torres','Flores','Morales'],
+    'ARG': [
+        # Españoles/nativos
+        'García','Rodríguez','González','Fernández','López','Martínez',
+        'Pérez','Sánchez','Romero','Torres','Díaz','Herrera','Castro',
+        'Morales','Reyes','Gutiérrez','Vargas','Ramos','Ríos','Medina',
+        # Italianos (muy comunes en Argentina)
+        'Rossi','Ferrari','Romano','Colombo','Bianchi','Ricci','Di Marco',
+        'Esposito','Bruno','Mancini','Pellegrini','Gatti','Bassi','Conti',
+        'Russo','De Luca','Lombardi','Gallo','Costa','Greco',
+        # Alemanes / centroeuropeos
+        'Müller','Weber','Hoffmann','Kramer','Fischer','Schulz',
+        # Otros europeos
+        'Dupont','Laurent','Moreau','Ivanov','Novak',
+    ],
+    'CHI': [
+        # Españoles/nativos
+        'González','Muñoz','Rojas','Díaz','Pérez','Soto','Contreras',
+        'Silva','Martínez','Flores','Álvarez','Castro','Reyes','Fuentes',
+        'Herrera','Morales','Espinoza','Vega','Cortés','Jiménez',
+        'Núñez','Pizarro','Valenzuela','Tapia','Acevedo','Miranda',
+        'Sepúlveda','Ríos','Araya','Ibáñez',
+        # Alemanes (fuerte inmigración al sur de Chile)
+        'Müller','Fischer','Hoffmann','Schneider','Becker','Braun',
+        'Koch','Wagner','Richter','Klein',
+        # Otros europeos / árabes
+        'Dupont','Farah','Hatem','Nasser',
+    ],
+    'BRA': [
+        # Portugueses/nativos
+        'Silva','Santos','Oliveira','Souza','Rodrigues','Ferreira',
+        'Alves','Pereira','Lima','Gomes','Ribeiro','Carvalho','Araújo',
+        'Nascimento','Costa','Barbosa','Pinto','Cardoso','Mendes','Moreira',
+        'Cavalcanti','Ramos','Correia','Teixeira','Nunes','Machado',
+        # Italianos (muy comunes en São Paulo / Sul)
+        'Rossi','Ferrari','Bianchi','Romano','Conti','Greco',
+        'Lombardi','Russo','De Luca','Ricci',
+        # Alemanes (muy comunes en RS, SC, PR)
+        'Müller','Fischer','Schneider','Hoffmann','Becker','Braun',
+        'Koch','Wagner','Richter','Klein',
+        # Japoneses (mayor comunidad fuera de Japón está en São Paulo)
+        'Nakamura','Yamamoto','Suzuki','Tanaka','Watanabe',
+        # Árabes (Líbano / Siria)
+        'Nasser','Farah','Haddad',
+    ],
+    'MEX': [
+        # Españoles/nativos
+        'García','Martínez','Hernández','López','González','Pérez',
+        'Sánchez','Ramírez','Torres','Flores','Morales','Reyes','Cruz',
+        'Vargas','Castillo','Romero','Gutiérrez','Díaz','Jiménez','Ortega',
+        'Medina','Chávez','Mendoza','Ramos','Herrera','Ruiz','Vázquez',
+        'Navarro','Salinas','Delgado',
+        # Árabes (comunidad libanesa/siria muy presente en México)
+        'Nasser','Farah','Haddad','Hatem','Kuri','Harb',
+        # Europeos varios
+        'Weber','Hoffmann','Dupont','Moreau',
+        # Asiáticos (comunidad china en Baja California, Sonora, etc.)
+        'Wong','Chan','Lee',
+    ],
 }
 
 _ACCENT = str.maketrans({
@@ -191,6 +289,18 @@ def rand_date(start, end):
     d = max(int((end - start).days), 1)
     return start + timedelta(days=int(rng.integers(0, d)))
 
+def next_business_day(d):
+    """Avanza al lunes si d cae en sábado o domingo."""
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
+def prev_business_day(d):
+    """Retrocede al viernes si d cae en sábado o domingo."""
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
 def make_product_id(country):
     return MELI_CODE[country] + str(int(rng.integers(10_000_000, 99_999_999)))
 
@@ -208,32 +318,24 @@ print('Helpers listos.')
 # SECCIÓN 3 — Leads Jira (todos los influencers identificados)
 # ================================================================
 
-n = N_JIRA_TOTAL
-shuf = np.arange(n)
-rng.shuffle(shuf)
+JIRA_PERIOD_DAYS  = max((TODAY - JIRA_START).days, 1)
+JIRA_PERIOD_WEEKS = JIRA_PERIOD_DAYS / 7.0
 
-n_pool = int(n * JIRA_FUNNEL['pool'])
-n_asig = int(n * JIRA_FUNNEL['asignado'])
-n_cont = int(n * JIRA_FUNNEL['contactado'])
-n_rech = int(n * JIRA_FUNNEL['rechazado'])
-n_afil = n - n_pool - n_asig - n_cont - n_rech
+# ── Throughput de hunters: convergen de 50 → 100 contactos/semana ────────────
+# Capacidad total = promedio 75/sem × semanas del período × factor de peso relativo
+HUNTER_WEEKLY_RATE_AVG = 75.0
+HUNTER_MAX_QUEUE       = 100   # máx leads en 'asignado' por hunter al cierre del período
+_mean_w = float(np.mean(_ht))
+HUNTER_CAPACITY = {
+    name: int(HUNTER_WEEKLY_RATE_AVG * JIRA_PERIOD_WEEKS * (_ht[i] / _mean_w))
+    for i, name in enumerate(HUNTER_NAMES)
+}
 
-states = np.empty(n, dtype=object)
-c0 = n_pool
-c1 = c0 + n_asig
-c2 = c1 + n_cont
-c3 = c2 + n_rech
-states[shuf[:c0]]  = 'pool'
-states[shuf[c0:c1]] = 'asignado'
-states[shuf[c1:c2]] = 'contactado'
-states[shuf[c2:c3]] = 'rechazado'
-states[shuf[c3:]]   = 'afiliado'
-
-jira_rows = []
-for i in range(n):
+# ── Fase 1: Generar todos los leads básicos ───────────────────────────────────
+raw_leads = []
+for i in range(N_JIRA_TOTAL):
     country             = str(rng.choice(COUNTRIES, p=COUNTRY_W))
     first, last, nombre = random_name(country)
-    state               = str(states[i])
     category            = random.choice(CATEGORIES)
 
     has_ig = random.random() < 0.85
@@ -243,36 +345,104 @@ for i in range(n):
     ig_handle = make_handle(first, last) if has_ig else None
     tt_handle = make_handle(first, last) if has_tt else None
 
-    hunter_idx      = None
-    ultimo_contacto = None
+    if float(rng.random()) < JIRA_FUNNEL['pool']:
+        hunter_idx       = None
+        fecha_asignacion = None
+    else:
+        hunter_idx       = int(rng.choice(len(HUNTER_NAMES), p=HUNTER_W))
+        # Distribución sesgada hacia fechas recientes para reflejar ramp-up del equipo
+        u1, u2           = float(rng.random()), float(rng.random())
+        t_frac           = max(u1, u2)   # densidad 2t: más leads en los últimos meses
+        fecha_asignacion = JIRA_START + timedelta(days=int(t_frac * JIRA_PERIOD_DAYS))
+        # Solo días hábiles: capear al último día hábil antes de TODAY, luego avanzar si weekend
+        fecha_asignacion = min(fecha_asignacion, prev_business_day(TODAY - timedelta(days=1)))
+        fecha_asignacion = next_business_day(fecha_asignacion)
 
-    if state in ('asignado', 'contactado', 'afiliado', 'rechazado'):
-        hunter_idx = int(rng.choice(len(HUNTER_NAMES), p=HUNTER_W))
-        if state == 'asignado':
-            ultimo_contacto = rand_date(JIRA_START, TODAY - timedelta(days=5))
-        elif state == 'contactado':
-            ultimo_contacto = rand_date(JIRA_START + timedelta(days=7), TODAY - timedelta(days=2))
+    raw_leads.append({
+        '_i':               i,
+        '_country':         country,
+        '_first':           first,
+        '_last':            last,
+        '_category':        category,
+        '_hunter_idx':      hunter_idx,
+        '_fecha_asig':      fecha_asignacion,
+        '_state':           'pool' if hunter_idx is None else None,
+        '_ultimo_contacto': None,
+        'NOMBRE':           nombre,
+        'INSTAGRAM':        ig_handle,
+        'TIKTOK':           tt_handle,
+    })
+
+# ── Fase 2: Procesar leads por hunter en orden FIFO ──────────────────────────
+for h_idx in range(len(HUNTER_NAMES)):
+    hunter_name = HUNTER_NAMES[h_idx]
+    capacity    = HUNTER_CAPACITY[hunter_name]
+
+    # Solo los leads de este hunter
+    h_leads = [l for l in raw_leads if l['_hunter_idx'] == h_idx]
+
+    # FIFO: más antiguo primero
+    h_leads.sort(key=lambda l: l['_fecha_asig'])
+
+    for j, lead in enumerate(h_leads):
+        fecha_asig = lead['_fecha_asig']
+        t = min((fecha_asig - JIRA_START).days / JIRA_PERIOD_DAYS, 1.0)
+
+        team_delay   = 3.0 - 2.0 * t
+        team_cr      = 0.08 + 0.10 * t
+        hunter_delay = max(team_delay + HUNTER_DELAY_DELTA[hunter_name], 0.3)
+        hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name], 0.03, 0.40))
+
+        if j < capacity:
+            # Lead dentro de la capacidad del hunter: fue contactado
+            delay_days      = int(np.clip(rng.normal(hunter_delay, 1.5), 0, 14))
+            contact_date    = next_business_day(fecha_asig + timedelta(days=delay_days))
+            ultimo_contacto = min(contact_date, prev_business_day(TODAY - timedelta(days=1)))
+            lead['_ultimo_contacto'] = ultimo_contacto
+
+            r = float(rng.random())
+            if r < hunter_cr:
+                lead['_state'] = 'afiliado'
+            elif r < hunter_cr + 0.55:
+                lead['_state'] = 'rechazado'
+            else:
+                lead['_state'] = 'contactado'
         else:
-            ultimo_contacto = rand_date(JIRA_START + timedelta(days=14), TODAY - timedelta(days=1))
+            # Lead en cola de espera (los más recientes, cap HUNTER_MAX_QUEUE)
+            lead['_state'] = 'asignado'
 
+# ── Fase 3: Construir df_jira_raw ─────────────────────────────────────────────
+jira_rows = []
+for lead in raw_leads:
+    fec = lead['_fecha_asig']
+    ult = lead['_ultimo_contacto']
     jira_rows.append({
-        '_i':              i,
-        '_state':          state,
-        '_country':        country,
-        '_first':          first,
-        '_last':           last,
-        '_category':       category,
-        '_hunter_idx':     hunter_idx,
-        'NOMBRE':          nombre,
-        'INSTAGRAM':       ig_handle,
-        'TIKTOK':          tt_handle,
-        'ULTIMO_CONTACTO': ultimo_contacto.strftime('%Y-%m-%d') if ultimo_contacto else None,
+        '_i':               lead['_i'],
+        '_state':           lead['_state'],
+        '_country':         lead['_country'],
+        '_first':           lead['_first'],
+        '_last':            lead['_last'],
+        '_category':        lead['_category'],
+        '_hunter_idx':      lead['_hunter_idx'],
+        'NOMBRE':           lead['NOMBRE'],
+        'INSTAGRAM':        lead['INSTAGRAM'],
+        'TIKTOK':           lead['TIKTOK'],
+        'FECHA_ASIGNACION': fec.strftime('%Y-%m-%d') if fec else None,
+        'ULTIMO_CONTACTO':  ult.strftime('%Y-%m-%d') if ult else None,
     })
 
 df_jira_raw = pd.DataFrame(jira_rows)
 
-print('Leads Jira generados:', len(df_jira_raw))
+print('Leads Jira generados :', len(df_jira_raw))
 print(df_jira_raw['_state'].value_counts().to_string())
+print('\nCapacidad y cola por hunter:')
+for h_idx in range(len(HUNTER_NAMES)):
+    name     = HUNTER_NAMES[h_idx]
+    cap      = HUNTER_CAPACITY[name]
+    h_df     = df_jira_raw[df_jira_raw['_hunter_idx'] == h_idx]
+    n_asig   = (h_df['_state'] == 'asignado').sum()
+    n_proc   = len(h_df) - n_asig
+    print(f'  {name:<22}  cap={cap:4d}  leads={len(h_df):5d}  proc={n_proc:5d}  asig={n_asig:3d}')
 
 
 # ================================================================
@@ -292,7 +462,8 @@ for _, row in jira_aff_df.iterrows():
     raw_i    = int(row['_i'])
     username = make_username(first, last, raw_i)
     uid      = int(rng.integers(10_000_000, 99_999_999))
-    joined   = rand_date(JIRA_START, TODAY - timedelta(days=3))
+    _uc    = row['ULTIMO_CONTACTO']
+    joined = datetime.strptime(_uc, '%Y-%m-%d') if _uc else rand_date(JIRA_START, TODAY - timedelta(days=3))
     aid      = aff_id_seq[0]
     aff_id_seq[0] += 1
 
@@ -429,10 +600,10 @@ df_affiliates['TIKTOK_FOLLOWER_COUNT']    = df_affiliates['_tt_followers']
 df_affiliates.drop(columns=['_ig_url', '_ig_followers', '_tt_url', '_tt_followers'], inplace=True, errors='ignore')
 
 df_dim_affiliates = df_affiliates[[
-    'AFFILIATE_ID', 'MELI_USERNAME', 'MELI_USER_ID', 'COUNTRY', 'CATEGORY',
+    'AFFILIATE_ID', 'MELI_USERNAME', 'MELI_USER_ID', '_joined', 'COUNTRY', 'CATEGORY',
     'INSTAGRAM_HANDLE', 'INSTAGRAM_FOLLOWER_COUNT',
     'TIKTOK_HANDLE',    'TIKTOK_FOLLOWER_COUNT',
-]].copy()
+]].copy().rename(columns={'_joined': 'AFFILIATED_AT'})
 
 print('\nDIM_AFFILIATES — handles backfilled:')
 print('  Con Instagram :', df_dim_affiliates['INSTAGRAM_HANDLE'].notna().sum())
@@ -464,28 +635,43 @@ for _, row in df_jira_raw.iterrows():
     jira_key = 'HUNT-' + str(raw_i + 1).zfill(4)
 
     jira_out.append({
-        'JIRA_KEY':        jira_key,
-        'MELI_USERNAME':   meli_username,
-        'HUNTER':          hunter,
-        'NOMBRE':          row['NOMBRE'],
-        'ULTIMO_CONTACTO': row['ULTIMO_CONTACTO'],
-        'INSTAGRAM':       row['INSTAGRAM'],
-        'TIKTOK':          row['TIKTOK'],
-        'asignado':   state in ('asignado', 'contactado', 'afiliado', 'rechazado'),
-        'contactado': state in ('contactado', 'afiliado', 'rechazado'),
-        'afiliado':   state == 'afiliado',
-        'rechazado':  state == 'rechazado',
+        'JIRA_KEY':          jira_key,
+        'MELI_USERNAME':     meli_username,
+        'HUNTER':            hunter,
+        'NOMBRE':            row['NOMBRE'],
+        'FECHA_ASIGNACION':  row['FECHA_ASIGNACION'],
+        'ULTIMO_CONTACTO':   row['ULTIMO_CONTACTO'],
+        'INSTAGRAM':         row['INSTAGRAM'],
+        'TIKTOK':            row['TIKTOK'],
+        'ESTADO':     state,
+        'ASIGNADO':   state in ('asignado', 'contactado', 'afiliado', 'rechazado'),
+        'CONTACTADO': state in ('contactado', 'afiliado', 'rechazado'),
+        'AFILIADO':   state == 'afiliado',
+        'RECHAZADO':  state == 'rechazado',
     })
 
 df_facts_jira = pd.DataFrame(jira_out)
 
+# ── Leads de test — para ejercicio de filtrado SQL del bootcamp ──────────────
+# Detección: LOWER(NOMBRE) LIKE '%test%'
+_test_rows = [
+    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Ana González',    'NOMBRE':'Test',        'FECHA_ASIGNACION':'2026-01-20','ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Carlos Mendez',   'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':'2026-02-10','ULTIMO_CONTACTO':'2026-02-12','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Sofía Ramírez',   'NOMBRE':'test_usuario','FECHA_ASIGNACION':'2026-01-15','ULTIMO_CONTACTO':'2026-01-17','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Bruno Alves',     'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':'2026-03-05','ULTIMO_CONTACTO':'2026-03-07','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
+    {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,              'NOMBRE':'Prueba Test', 'FECHA_ASIGNACION':None,       'ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Valentina Torres','NOMBRE':'Test Nico',   'FECHA_ASIGNACION':'2026-02-24','ULTIMO_CONTACTO':'2026-02-25','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+]
+df_facts_jira = pd.concat([df_facts_jira, pd.DataFrame(_test_rows)], ignore_index=True)
+print(f'  >> {len(_test_rows)} leads de test inyectados (HUNT-99980 a HUNT-99985)')
+
 print('Registros Jira :', len(df_facts_jira))
 print('\nDistribución por estado:')
-print('  asignado  :', df_facts_jira['asignado'].sum())
-print('  contactado:', df_facts_jira['contactado'].sum())
-print('  afiliado  :', df_facts_jira['afiliado'].sum())
-print('  rechazado :', df_facts_jira['rechazado'].sum())
-print('  pool      :', (~df_facts_jira['asignado']).sum())
+print('  ASIGNADO  :', df_facts_jira['ASIGNADO'].sum())
+print('  CONTACTADO:', df_facts_jira['CONTACTADO'].sum())
+print('  AFILIADO  :', df_facts_jira['AFILIADO'].sum())
+print('  RECHAZADO :', df_facts_jira['RECHAZADO'].sum())
+print('  pool      :', (~df_facts_jira['ASIGNADO']).sum())
 print('\nDistribución por hunter (leads asignados):')
 print(df_facts_jira[df_facts_jira['HUNTER'].notna()]['HUNTER'].value_counts().to_string())
 
@@ -572,6 +758,29 @@ for _, aff in df_affiliates.iterrows():
             '_end_dt':                end_dt,
         })
 
+# ── Garantizar URLs en primera semana para afiliados Jira ─────────────────────
+N_JIRA_FIRST_WEEK_URLS = 5
+for _, aff in df_affiliates[df_affiliates['_source'] == 'jira'].iterrows():
+    aid            = aff['AFFILIATE_ID']
+    username       = aff['MELI_USERNAME']
+    joined         = aff['_joined']
+    first_week_end = min(joined + timedelta(days=7), TODAY - timedelta(days=1))
+    if first_week_end <= joined:
+        continue
+    for _ in range(N_JIRA_FIRST_WEEK_URLS):
+        pid        = random.choice(product_pid_pool)
+        url        = 'https://meli.me/' + pid[:3].lower() + '/' + pid.lower() + '?aff=' + username
+        created_at = rand_date(joined, first_week_end)
+        url_records.append({
+            'URL':                    url,
+            'AFFILIATE_ID':           aid,
+            'MARKETPLACE_PRODUCT_ID': pid,
+            'CREATED_AT':             created_at.strftime('%Y-%m-%d'),
+            'CLOSED_AT':              None,
+            '_created_dt':            created_at,
+            '_end_dt':                TODAY,
+        })
+
 df_urls = pd.DataFrame(url_records).drop_duplicates('URL').reset_index(drop=True)
 
 referenced_pids = set(df_urls['MARKETPLACE_PRODUCT_ID'].unique())
@@ -592,6 +801,14 @@ print(f'  Productos únicos ref.    : {len(df_dim_products):,}  (de pool de {len
 
 aff_max_followers = df_sm.groupby('AFFILIATE_ID')['FOLLOWERS'].max().to_dict()
 
+# ── Ballenas: 2 afiliados con impacto desproporcionado en clicks y ventas ────────
+N_WHALES               = 2
+WHALE_CLICK_MULTIPLIER = 60
+
+top_by_followers = pd.Series(aff_max_followers).nlargest(20).index.tolist()
+whale_ids        = set(random.sample(top_by_followers, N_WHALES))
+print(f'Ballenas designadas    : AFFILIATE_ID {sorted(whale_ids)}')
+
 df_urls['_created_dt'] = pd.to_datetime(df_urls['_created_dt'])
 df_urls['_end_dt']     = pd.to_datetime(df_urls['_end_dt'])
 df_urls['_active_days'] = (
@@ -609,6 +826,11 @@ n_clicks_raw = rng.lognormal(mean=log_mean, sigma=0.9)
 total_raw = n_clicks_raw.sum()
 n_clicks_scaled = n_clicks_raw * (N_TARGET_ACCESS_LOGS / total_raw)
 df_urls['_n_clicks'] = np.maximum(np.floor(n_clicks_scaled).astype(int), 0)
+# Amplificar clicks de las ballenas DESPUÉS del escalado para no colapsar el presupuesto base
+whale_url_mask = df_urls['AFFILIATE_ID'].isin(whale_ids).values
+df_urls.loc[whale_url_mask, '_n_clicks'] = (
+    df_urls.loc[whale_url_mask, '_n_clicks'] * WHALE_CLICK_MULTIPLIER
+).astype(int)
 
 total_clicks = int(df_urls['_n_clicks'].sum())
 print('Total clicks a generar :', f'{total_clicks:,}', f'(target: {N_TARGET_ACCESS_LOGS:,})')
@@ -696,64 +918,76 @@ df_facts_sales = df_sales_base[[
 df_facts_sales['PURCHASE_DATETIME'] = df_facts_sales['PURCHASE_DATETIME'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
 real_cr = round(100 * len(df_facts_sales) / len(df_access_logs), 1)
-print('Registros ventas       :', f'{len(df_facts_sales):,}')
-print('Conv. rate efectivo    :', str(real_cr) + '%')
+print('Ventas orgánicas       :', f'{len(df_facts_sales):,}', f'(conv. rate {real_cr}%)')
+
+# ── Ventas garantizadas para afiliados Jira en su primera semana ──────────────
+JIRA_SALES_MIN = 5
+JIRA_SALES_MAX = 20
+
+jira_aff_ids   = set(df_affiliates[df_affiliates['_source'] == 'jira']['AFFILIATE_ID'])
+aff_joined_map = df_affiliates.set_index('AFFILIATE_ID')['_joined'].to_dict()
+
+df_urls['_created_dt_dt'] = pd.to_datetime(df_urls['_created_dt'])
+df_urls['_aff_joined']    = pd.to_datetime(df_urls['AFFILIATE_ID'].map(aff_joined_map))
+
+jira_first_week_urls = df_urls[
+    df_urls['AFFILIATE_ID'].isin(jira_aff_ids) &
+    (df_urls['_created_dt_dt'] <= df_urls['_aff_joined'] + timedelta(days=7))
+].copy()
+
+df_urls.drop(columns=['_created_dt_dt', '_aff_joined'], inplace=True, errors='ignore')
+
+jira_sales_records = []
+for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
+    joined         = aff_joined_map[aff_id]
+    first_week_end = min(joined + timedelta(days=7), TODAY)
+    n_sales        = int(rng.integers(JIRA_SALES_MIN, JIRA_SALES_MAX + 1))
+
+    for _ in range(n_sales):
+        url_row  = group.sample(1).iloc[0]
+        url      = url_row['URL']
+        pid      = url_row['MARKETPLACE_PRODUCT_ID']
+        country  = url_to_country.get(url, 'BRA')
+        currency = CURRENCY_MAP[country]
+        lo, hi   = PRICE_RANGES[country]
+        price    = round(float(rng.uniform(lo, hi)), 2)
+
+        days_range  = max((first_week_end - joined).days, 1)
+        purchase_dt = joined + timedelta(
+            days    = int(rng.integers(0, days_range)),
+            hours   = int(rng.integers(8, 22)),
+            minutes = int(rng.integers(0, 60)),
+        )
+        purchase_dt = min(purchase_dt, TODAY)
+
+        jira_sales_records.append({
+            'URL':                    url,
+            'AFFILIATE_ID':           aff_id,
+            'BUYER_MELI_USER_ID':     int(rng.integers(10_000_000, 99_999_999)),
+            'MARKETPLACE_PRODUCT_ID': pid,
+            'PURCHASE_DATETIME':      purchase_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'COUNTRY':                country,
+            'CURRENCY':               currency,
+            'PRICE':                  price,
+        })
+
+if jira_sales_records:
+    df_jira_guaranteed = pd.DataFrame(jira_sales_records)
+    df_facts_sales     = pd.concat([df_facts_sales, df_jira_guaranteed], ignore_index=True)
+    print(f'Ventas garantizadas Jira   : {len(df_jira_guaranteed):,}  ({len(jira_aff_ids)} afiliados)')
+
+print('Total ventas           :', f'{len(df_facts_sales):,}')
 print('\nPrecio promedio por país:')
 print(df_sales_base.groupby('COUNTRY')['PRICE'].agg(['mean','min','max']).round(0).to_string())
 
 
 # ================================================================
-# SECCIÓN 10 — FACTS_USD_EXCHANGE_RATES
-# ================================================================
-
-FX_START = min(PROGRAM_LAUNCH.values())
-FX_END   = TODAY
-
-fx_dates = []
-d = FX_START
-while d <= FX_END:
-    fx_dates.append(d)
-    d += timedelta(days=7)
-n_weeks = len(fx_dates)
-
-print(f'Generando {n_weeks} semanas de tasas ({FX_START.date()} -> {FX_END.date()})')
-
-FX_PARAMS = {
-    'ARS': {'drift': +0.012,  'vol': 0.035},
-    'BRL': {'drift': +0.0015, 'vol': 0.012},
-    'MXN': {'drift': +0.0010, 'vol': 0.010},
-    'CLP': {'drift': +0.0008, 'vol': 0.009},
-}
-
-fx_records = []
-for currency, params in FX_PARAMS.items():
-    shocks      = rng.normal(loc=params['drift'], scale=params['vol'], size=n_weeks)
-    log_returns = np.cumsum(shocks)
-    log_series  = np.log(FX_ANCHOR[currency]) + log_returns - log_returns[-1]
-    rate_series = np.exp(log_series)
-    for i, dt in enumerate(fx_dates):
-        fx_records.append({
-            'CURRENCY':      currency,
-            'RATE_DATETIME': dt.strftime('%Y-%m-%d'),
-            'VALUE':         round(float(rate_series[i]), 4),
-        })
-
-df_exchange_rates = pd.DataFrame(fx_records)
-
-print('Registros tipo de cambio :', len(df_exchange_rates))
-print('\nÚltimo valor por moneda:')
-print(df_exchange_rates.groupby('CURRENCY').last()[['RATE_DATETIME', 'VALUE']].to_string())
-print('\nRango histórico:')
-print(df_exchange_rates.groupby('CURRENCY')['VALUE'].agg(['min', 'max']).round(2).to_string())
-
-
-# ================================================================
-# SECCIÓN 11 — Exportar CSVs
+# SECCIÓN 10 — Exportar CSVs
 # ================================================================
 
 EXPORT_COLS = {
     'DIM_AFFILIATES': [
-        'AFFILIATE_ID', 'MELI_USERNAME', 'MELI_USER_ID', 'COUNTRY', 'CATEGORY',
+        'AFFILIATE_ID', 'MELI_USERNAME', 'MELI_USER_ID', 'AFFILIATED_AT', 'COUNTRY', 'CATEGORY',
         'INSTAGRAM_HANDLE', 'INSTAGRAM_FOLLOWER_COUNT',
         'TIKTOK_HANDLE', 'TIKTOK_FOLLOWER_COUNT',
     ],
@@ -762,8 +996,8 @@ EXPORT_COLS = {
     ],
     'FACTS_JIRA_HUNTING_AFILIADOS': [
         'JIRA_KEY', 'MELI_USERNAME', 'HUNTER', 'NOMBRE',
-        'ULTIMO_CONTACTO', 'INSTAGRAM', 'TIKTOK',
-        'asignado', 'contactado', 'afiliado', 'rechazado',
+        'FECHA_ASIGNACION', 'ULTIMO_CONTACTO', 'INSTAGRAM', 'TIKTOK',
+        'ESTADO', 'ASIGNADO', 'CONTACTADO', 'AFILIADO', 'RECHAZADO',
     ],
     'FACTS_MARKETPLACE_AFFILIATE_URLS': [
         'URL', 'AFFILIATE_ID', 'MARKETPLACE_PRODUCT_ID', 'CREATED_AT', 'CLOSED_AT',
@@ -781,9 +1015,6 @@ EXPORT_COLS = {
         'CONDITION', 'VISIBLE', 'AVAILABLE_UNITS',
         'PUBLICATION_DATETIME', 'CALIFICATION', 'OPINIONS',
     ],
-    'FACTS_USD_EXCHANGE_RATES': [
-        'CURRENCY', 'RATE_DATETIME', 'VALUE',
-    ],
 }
 
 DATAFRAMES = {
@@ -794,7 +1025,6 @@ DATAFRAMES = {
     'FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS':  df_access_logs,
     'FACTS_AFFILIATES_MARKETPLACE_SALES':        df_facts_sales,
     'DIM_AFFILIATES_MARKETPLACE_PRODUCTS':       df_dim_products,
-    'FACTS_USD_EXCHANGE_RATES':                  df_exchange_rates,
 }
 
 print('Exportando CSVs a:', OUTPUT_DIR)

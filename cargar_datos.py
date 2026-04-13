@@ -20,6 +20,7 @@ SCHEMAS = {
         bigquery.SchemaField('AFFILIATE_ID',              'INTEGER'),
         bigquery.SchemaField('MELI_USERNAME',             'STRING'),
         bigquery.SchemaField('MELI_USER_ID',              'INTEGER'),
+        bigquery.SchemaField('AFFILIATED_AT',             'DATE'),
         bigquery.SchemaField('COUNTRY',                   'STRING'),
         bigquery.SchemaField('CATEGORY',                  'STRING'),
         bigquery.SchemaField('INSTAGRAM_HANDLE',          'STRING'),
@@ -35,17 +36,19 @@ SCHEMAS = {
         bigquery.SchemaField('FOLLOWERS',    'INTEGER'),
     ],
     'FACTS_JIRA_HUNTING_AFILIADOS': [
-        bigquery.SchemaField('JIRA_KEY',        'STRING'),
-        bigquery.SchemaField('MELI_USERNAME',   'STRING'),
-        bigquery.SchemaField('HUNTER',          'STRING'),
-        bigquery.SchemaField('NOMBRE',          'STRING'),
-        bigquery.SchemaField('ULTIMO_CONTACTO', 'DATE'),
-        bigquery.SchemaField('INSTAGRAM',       'STRING'),
-        bigquery.SchemaField('TIKTOK',          'STRING'),
-        bigquery.SchemaField('asignado',        'BOOLEAN'),
-        bigquery.SchemaField('contactado',      'BOOLEAN'),
-        bigquery.SchemaField('afiliado',        'BOOLEAN'),
-        bigquery.SchemaField('rechazado',       'BOOLEAN'),
+        bigquery.SchemaField('JIRA_KEY',          'STRING'),
+        bigquery.SchemaField('MELI_USERNAME',     'STRING'),
+        bigquery.SchemaField('HUNTER',            'STRING'),
+        bigquery.SchemaField('NOMBRE',            'STRING'),
+        bigquery.SchemaField('FECHA_ASIGNACION',  'DATE'),
+        bigquery.SchemaField('ULTIMO_CONTACTO',   'DATE'),
+        bigquery.SchemaField('INSTAGRAM',         'STRING'),
+        bigquery.SchemaField('TIKTOK',            'STRING'),
+        bigquery.SchemaField('ESTADO',            'STRING'),
+        bigquery.SchemaField('ASIGNADO',          'BOOLEAN'),
+        bigquery.SchemaField('CONTACTADO',        'BOOLEAN'),
+        bigquery.SchemaField('AFILIADO',          'BOOLEAN'),
+        bigquery.SchemaField('RECHAZADO',         'BOOLEAN'),
     ],
     'FACTS_MARKETPLACE_AFFILIATE_URLS': [
         bigquery.SchemaField('URL',                    'STRING'),
@@ -82,7 +85,7 @@ SCHEMAS = {
         bigquery.SchemaField('PUBLICATION_DATETIME',   'DATE'),
         bigquery.SchemaField('CALIFICATION',           'FLOAT'),
         bigquery.SchemaField('OPINIONS',               'INTEGER'),
-    ]
+    ],
 }
 
 def cargar_tabla(table_name):
