@@ -65,8 +65,8 @@ CATEGORY_W = [
 PLATFORMS = ['instagram', 'tiktok', 'youtube', 'facebook', 'x', 'other']
 
 PLAT_PROB = {
-    'instagram': 0.85,
-    'tiktok':    0.72,
+    'instagram': 0.99,
+    'tiktok':    0.95,
     'youtube':   0.32,
     'facebook':  0.28,
     'x':         0.22,
@@ -157,6 +157,13 @@ PRICE_CLAMP = {
     'MEX': (     50,    30_000),
     'CHI': (    300,   400_000),
 }
+
+# ── Followers — distribución lognormal ────────────────────────
+# Piso de followers: 8 000 × Uniform(FOLLOWER_FLOOR_JITTER_LO, FOLLOWER_FLOOR_JITTER_HI)
+# El jitter evita un corte artificial en exactamente 8 000.
+FOLLOWER_FLOOR_BASE     = 8_000
+FOLLOWER_FLOOR_JITTER_LO = 0.985
+FOLLOWER_FLOOR_JITTER_HI = 1.123
 
 # ── Ballenas (afiliados con impacto desproporcionado) ──────────
 N_WHALES               = 2

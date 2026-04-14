@@ -24,9 +24,9 @@ SCHEMAS = {
         bigquery.SchemaField('COUNTRY',                   'STRING'),
         bigquery.SchemaField('CATEGORY',                  'STRING'),
         bigquery.SchemaField('INSTAGRAM_HANDLE',          'STRING'),
-        bigquery.SchemaField('INSTAGRAM_FOLLOWER_COUNT',  'FLOAT'),
+        bigquery.SchemaField('INSTAGRAM_FOLLOWER_COUNT',  'INTEGER'),
         bigquery.SchemaField('TIKTOK_HANDLE',             'STRING'),
-        bigquery.SchemaField('TIKTOK_FOLLOWER_COUNT',     'FLOAT'),
+        bigquery.SchemaField('TIKTOK_FOLLOWER_COUNT',     'INTEGER'),
     ],
     'FACTS_REGISTERED_SOCIAL_MEDIA': [
         bigquery.SchemaField('SM_ID',        'INTEGER'),

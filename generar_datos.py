@@ -77,8 +77,9 @@ def make_handle(first, last):
 
 def follower_count(n=1):
     """Lognormal: mediana ≈ 36K, 95pct ≈ 260K. Rango [8K, 2M]."""
-    raw = rng.lognormal(mean=10.5, sigma=1.2, size=n)
-    return np.clip(raw, 8_000, 2_000_000).astype(int)
+    floor = FOLLOWER_FLOOR_BASE * rng.uniform(FOLLOWER_FLOOR_JITTER_LO, FOLLOWER_FLOOR_JITTER_HI)
+    raw   = rng.lognormal(mean=10.5, sigma=1.2, size=n)
+    return np.clip(raw, floor, 2_000_000).astype(int)
 
 def rand_date(start, end):
     d = max(int((end - start).days), 1)
@@ -376,9 +377,9 @@ def _handle_from_url(url, prefix):
 df_affiliates = df_affiliates.join(ig_lookup, on='AFFILIATE_ID')
 df_affiliates = df_affiliates.join(tt_lookup, on='AFFILIATE_ID')
 df_affiliates['INSTAGRAM_HANDLE']         = df_affiliates['_ig_url'].apply(lambda u: _handle_from_url(u, 'https://instagram.com/'))
-df_affiliates['INSTAGRAM_FOLLOWER_COUNT'] = df_affiliates['_ig_followers']
+df_affiliates['INSTAGRAM_FOLLOWER_COUNT'] = df_affiliates['_ig_followers'].astype('Int64')
 df_affiliates['TIKTOK_HANDLE']            = df_affiliates['_tt_url'].apply(lambda u: _handle_from_url(u, 'https://tiktok.com/@'))
-df_affiliates['TIKTOK_FOLLOWER_COUNT']    = df_affiliates['_tt_followers']
+df_affiliates['TIKTOK_FOLLOWER_COUNT']    = df_affiliates['_tt_followers'].astype('Int64')
 df_affiliates.drop(columns=['_ig_url', '_ig_followers', '_tt_url', '_tt_followers'], inplace=True, errors='ignore')
 
 df_dim_affiliates = df_affiliates[[
