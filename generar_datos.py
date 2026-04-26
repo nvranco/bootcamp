@@ -123,11 +123,45 @@ print('Helpers listos.')
 JIRA_PERIOD_DAYS  = max((TODAY - JIRA_START).days, 1)
 JIRA_PERIOD_WEEKS = JIRA_PERIOD_DAYS / 7.0
 
-# ── Throughput de hunters: convergen de 50 → 100 contactos/semana ────────────
-# Capacidad total = promedio 75/sem × semanas del período × factor de peso relativo
+# ── CDF numérica para la distribución de fechas de asignación ────────────────
+# La tasa de contactos/semana sigue una curva logarítmica:
+#   r(t) = RATE_START + (RATE_MAX - RATE_START) * log(1+α·t/T_ramp) / log(1+α)  para t ≤ T_ramp
+#   r(t) = RATE_MAX                                                                 para t > T_ramp
+# Esto genera más leads al comienzo y se estabiliza en HUNTER_RAMP_WEEKS semanas.
+_LOG_ALPHA  = 7.0       # curvatura del log (α). Mayor valor = ramp más empinada al inicio
+_N_BINS     = 4_000     # resolución de la CDF numérica
+
+_t_pts = np.linspace(0.0, JIRA_PERIOD_WEEKS, _N_BINS + 1)
+
+def _hunter_rate(t_w):
+    if t_w <= HUNTER_RAMP_WEEKS:
+        return HUNTER_RATE_START + (HUNTER_RATE_MAX - HUNTER_RATE_START) * \
+               np.log1p(_LOG_ALPHA * t_w / HUNTER_RAMP_WEEKS) / np.log1p(_LOG_ALPHA)
+    return HUNTER_RATE_MAX
+
+_r_pts    = np.array([_hunter_rate(t) for t in _t_pts])
+# Integral trapezoidal: total contactos del hunter promedio en el período
+_total_contacts_avg = float(np.trapezoid(_r_pts, _t_pts))
+# CDF normalizada para muestrear fechas de asignación
+_cdf_raw = np.concatenate([[0.0],
+    np.cumsum((_r_pts[:-1] + _r_pts[1:]) * 0.5 * np.diff(_t_pts))])
+_cdf_raw /= _cdf_raw[-1]
+
+def _sample_t_frac():
+    """Devuelve t ∈ [0, 1] muestreado de la distribución logarítmica de asignaciones."""
+    u   = float(rng.random())
+    idx = int(np.searchsorted(_cdf_raw, u, side='right')) - 1
+    idx = max(0, min(idx, _N_BINS - 1))
+    lo, hi = _cdf_raw[idx], _cdf_raw[idx + 1]
+    denom  = hi - lo
+    frac   = (u - lo) / denom if denom > 1e-12 else 0.5
+    t_w    = _t_pts[idx] + frac * (_t_pts[idx + 1] - _t_pts[idx])
+    return t_w / JIRA_PERIOD_WEEKS
+
+# ── Capacidad total por hunter = integral de la curva × throughput relativo ───
 _mean_w = float(np.mean(_ht))
 HUNTER_CAPACITY = {
-    name: int(HUNTER_WEEKLY_RATE_AVG * JIRA_PERIOD_WEEKS * (_ht[i] / _mean_w))
+    name: int(_total_contacts_avg * (_ht[i] / _mean_w))
     for i, name in enumerate(HUNTER_NAMES)
 }
 
@@ -150,9 +184,7 @@ for i in range(N_JIRA_TOTAL):
         fecha_asignacion = None
     else:
         hunter_idx       = int(rng.choice(len(HUNTER_NAMES), p=_hunter_w))
-        # Distribución sesgada hacia fechas recientes para reflejar ramp-up del equipo
-        u1, u2           = float(rng.random()), float(rng.random())
-        t_frac           = max(u1, u2)   # densidad 2t: más leads en los últimos meses
+        t_frac           = _sample_t_frac()   # ramp logarítmico definido en config
         fecha_asignacion = JIRA_START + timedelta(days=int(t_frac * JIRA_PERIOD_DAYS))
         # Solo días hábiles: capear al último día hábil antes de TODAY, luego avanzar si weekend
         fecha_asignacion = min(fecha_asignacion, prev_business_day(TODAY - timedelta(days=1)))

@@ -180,8 +180,13 @@ HUNTER_NAMES = [
 _ht      = np.array([0.70, 0.85, 1.00, 1.25, 1.40, 0.90, 0.75, 0.80])
 HUNTER_W = (_ht / _ht.sum()).tolist()
 
-HUNTER_WEEKLY_RATE_AVG = 75.0
-HUNTER_MAX_QUEUE       = 100
+# Ramp-up de contactos por semana (hunter promedio).
+# Progresión logarítmica: sube rápido en las primeras HUNTER_RAMP_WEEKS semanas
+# y se estabiliza en HUNTER_RATE_MAX a partir de ahí.
+HUNTER_RATE_START  =  80.0   # contactos/semana al inicio del período
+HUNTER_RATE_MAX    = 150.0   # contactos/semana al estabilizarse
+HUNTER_RAMP_WEEKS  =   6.0   # semanas para alcanzar la tasa máxima
+HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
 
 # Offset de tiempo de respuesta vs. la media del equipo (días)
 HUNTER_DELAY_DELTA = {
@@ -209,7 +214,7 @@ HUNTER_CR_DELTA = {
 
 # ── Funnel Jira ────────────────────────────────────────────────
 JIRA_FUNNEL = {
-    'pool':       0.60,
+    'pool':       0.33,   # reducido para que haya suficiente volumen para el ramp 80→150/sem/hunter
     'asignado':   0.10,
     'contactado': 0.10,
     'rechazado':  0.16,
