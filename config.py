@@ -7,14 +7,14 @@
 # ================================================================
 
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # ── Semilla aleatoria ──────────────────────────────────────────
 SEED = 42
 
 # ── Fecha de corte ─────────────────────────────────────────────
-TODAY      = datetime(2026, 4, 12)
-JIRA_START = TODAY - timedelta(days=90)
+TODAY      = datetime(2026, 4, 26)
+JIRA_START = TODAY - timedelta(days=150)
 
 PROGRAM_LAUNCH = {
     'BRA': TODAY - timedelta(days=365 * 3),
@@ -24,7 +24,7 @@ PROGRAM_LAUNCH = {
 }
 
 # ── Escala ─────────────────────────────────────────────────────
-N_AFFILIATES         = 35_000   # total de afiliados en el programa
+N_AFFILIATES         = 50_000   # total de afiliados en el programa
 N_JIRA_TOTAL         = 20_000   # total de leads en el tablero Jira
 N_PRODUCT_POOL       = 12_000   # productos en el pool del marketplace
 N_TARGET_ACCESS_LOGS = 100_000  # volumen total de access logs (clics)
@@ -38,8 +38,12 @@ N_TARGET_ACCESS_LOGS = 100_000  # volumen total de access logs (clics)
 SALES_MULTIPLIER = 3.0
 
 CONVERSION_RATE = 0.030   # tasa de conversión base clics → ventas
-JIRA_SALES_MIN  = 5       # mínimo de ventas garantizadas (afiliados Jira)
-JIRA_SALES_MAX  = 20      # máximo de ventas garantizadas (afiliados Jira)
+
+# Ventas garantizadas para afiliados Jira: distribución lognormal sin techo fijo.
+# Mediana ≈ exp(JIRA_SALES_MU) ≈ 25 ventas; cola larga hacia 100+.
+JIRA_SALES_MU    = 3.2    # ln(mediana) — mediana ≈ 25 ventas por afiliado
+JIRA_SALES_SIGMA = 0.8    # σ — p5 ≈ 7, p95 ≈ 91, p99 ≈ 145 ventas
+JIRA_SALES_FLOOR = 5      # piso absoluto (independiente de SALES_MULTIPLIER)
 
 # ── Países ─────────────────────────────────────────────────────
 COUNTRIES = ['BRA', 'MEX', 'ARG', 'CHI']
@@ -166,7 +170,7 @@ FOLLOWER_FLOOR_JITTER_LO = 0.985
 FOLLOWER_FLOOR_JITTER_HI = 1.123
 
 # ── Ballenas (afiliados con impacto desproporcionado) ──────────
-N_WHALES               = 2
+N_WHALES               = 123
 WHALE_CLICK_MULTIPLIER = 60
 
 # ── Hunters ────────────────────────────────────────────────────
@@ -180,12 +184,73 @@ HUNTER_NAMES = [
 _ht      = np.array([0.70, 0.85, 1.00, 1.25, 1.40, 0.90, 0.75, 0.80])
 HUNTER_W = (_ht / _ht.sum()).tolist()
 
+# ── Ruido semanal en productividad de hunters ─────────────────
+# Cada semana recibe un multiplicador LogNormal(0, σ) independiente.
+# σ=0.22 → la mayoría de las semanas está entre ±25 % del promedio;
+# ocasionalmente alguna semana cae a ~0.6× o sube a ~1.5×.
+HUNTER_WEEKLY_NOISE_SIGMA = 0.22
+
+# ── Feriados nacionales de Argentina (sin actividad de hunting) ──
+# Usado en next_business_day / prev_business_day para correr fechas.
+ARG_HOLIDAYS = {
+    date(2025, 12,  8),  # Inmaculada Concepción
+    date(2025, 12, 25),  # Navidad
+    date(2026,  1,  1),  # Año Nuevo
+    date(2026,  1,  2),  # Feriado puente (frecuente en ARG)
+    date(2026,  2, 16),  # Carnaval — lunes
+    date(2026,  2, 17),  # Carnaval — martes
+    date(2026,  3, 24),  # Día de la Memoria
+    date(2026,  4,  2),  # Día del Veterano (Malvinas)
+    date(2026,  4, 17),  # Viernes Santo
+}
+
+# ── Eventos de ventas estacionales ────────────────────────────
+# extra_sales: número de ventas adicionales a inyectar en el período.
+# cat1_filter: lista de CATEGORY_AGG_1 afectadas, o None para todas.
+SALES_EVENTS = [
+    {
+        'name':        'Black Friday 2025',
+        'start':       date(2025, 11, 27),
+        'end':         date(2025, 11, 29),
+        'extra_sales': 1_800,
+        'cat1_filter': None,
+    },
+    {
+        'name':        'CyberMonday ARG 2025',
+        'start':       date(2025, 12,  1),
+        'end':         date(2025, 12,  3),
+        'extra_sales':   900,
+        'cat1_filter': ['Electrónica', 'Ropa y Moda'],
+    },
+    {
+        'name':        'Navidad 2025',
+        'start':       date(2025, 12, 20),
+        'end':         date(2025, 12, 25),
+        'extra_sales': 1_000,
+        'cat1_filter': ['Juguetes y Bebés', 'Electrónica', 'Ropa y Moda'],
+    },
+    {
+        'name':        'San Valentín 2026',
+        'start':       date(2026,  2, 13),
+        'end':         date(2026,  2, 14),
+        'extra_sales':   600,
+        'cat1_filter': ['Belleza y Salud', 'Ropa y Moda'],
+    },
+    {
+        'name':        'Día de la Mujer 2026',
+        'start':       date(2026,  3,  8),
+        'end':         date(2026,  3,  8),
+        'extra_sales':   400,
+        'cat1_filter': ['Belleza y Salud', 'Ropa y Moda'],
+    },
+]
+
 # Ramp-up de contactos por semana (hunter promedio).
 # Progresión logarítmica: sube rápido en las primeras HUNTER_RAMP_WEEKS semanas
 # y se estabiliza en HUNTER_RATE_MAX a partir de ahí.
 HUNTER_RATE_START  =  80.0   # contactos/semana al inicio del período
-HUNTER_RATE_MAX    = 150.0   # contactos/semana al estabilizarse
-HUNTER_RAMP_WEEKS  =   6.0   # semanas para alcanzar la tasa máxima
+HUNTER_RATE_MAX    = 140.0   # contactos/semana al estabilizarse
+HUNTER_RAMP_WEEKS  =   12.0   # semanas para alcanzar la tasa máxima
 HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
 
 # Offset de tiempo de respuesta vs. la media del equipo (días)

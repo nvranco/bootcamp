@@ -86,14 +86,14 @@ def rand_date(start, end):
     return start + timedelta(days=int(rng.integers(0, d)))
 
 def next_business_day(d):
-    """Avanza al lunes si d cae en sábado o domingo."""
-    while d.weekday() >= 5:
+    """Avanza al siguiente día hábil (saltea fines de semana y feriados ARG)."""
+    while d.weekday() >= 5 or d.date() in ARG_HOLIDAYS:
         d += timedelta(days=1)
     return d
 
 def prev_business_day(d):
-    """Retrocede al viernes si d cae en sábado o domingo."""
-    while d.weekday() >= 5:
+    """Retrocede al día hábil anterior (saltea fines de semana y feriados ARG)."""
+    while d.weekday() >= 5 or d.date() in ARG_HOLIDAYS:
         d -= timedelta(days=1)
     return d
 
@@ -139,12 +139,21 @@ def _hunter_rate(t_w):
                np.log1p(_LOG_ALPHA * t_w / HUNTER_RAMP_WEEKS) / np.log1p(_LOG_ALPHA)
     return HUNTER_RATE_MAX
 
-_r_pts    = np.array([_hunter_rate(t) for t in _t_pts])
-# Integral trapezoidal: total contactos del hunter promedio en el período
+_r_pts = np.array([_hunter_rate(t) for t in _t_pts])
+# Capacidad total basada en la curva smooth (independiente del ruido semanal)
 _total_contacts_avg = float(np.trapezoid(_r_pts, _t_pts))
-# CDF normalizada para muestrear fechas de asignación
+
+# Ruido semanal: cada semana del período recibe un multiplicador LogNormal(0, σ).
+# Semilla separada para que el ruido sea reproducible pero independiente del resto.
+_n_weeks_noise = int(np.ceil(JIRA_PERIOD_WEEKS)) + 1
+_week_noise    = np.random.default_rng(SEED + 7).lognormal(
+                     mean=0.0, sigma=HUNTER_WEEKLY_NOISE_SIGMA, size=_n_weeks_noise)
+_r_pts_noisy   = _r_pts * np.array([
+                     _week_noise[min(int(t), _n_weeks_noise - 1)] for t in _t_pts])
+
+# CDF con ruido: redistribuye las fechas de asignación con variación semanal visible
 _cdf_raw = np.concatenate([[0.0],
-    np.cumsum((_r_pts[:-1] + _r_pts[1:]) * 0.5 * np.diff(_t_pts))])
+    np.cumsum((_r_pts_noisy[:-1] + _r_pts_noisy[1:]) * 0.5 * np.diff(_t_pts))])
 _cdf_raw /= _cdf_raw[-1]
 
 def _sample_t_frac():
@@ -730,8 +739,7 @@ real_cr = round(100 * len(df_facts_sales) / len(df_access_logs), 1)
 print('Ventas orgánicas       :', f'{len(df_facts_sales):,}', f'(conv. rate {real_cr}%)')
 
 # ── Ventas garantizadas para afiliados Jira en su primera semana ──────────────
-_jira_min = max(1, int(JIRA_SALES_MIN * SALES_MULTIPLIER))
-_jira_max = max(_jira_min + 1, int(JIRA_SALES_MAX * SALES_MULTIPLIER))
+# Distribución lognormal sin techo fijo: mediana ≈ exp(JIRA_SALES_MU) ≈ 25 ventas.
 
 jira_aff_ids   = set(df_affiliates[df_affiliates['_source'] == 'jira']['AFFILIATE_ID'])
 aff_joined_map = df_affiliates.set_index('AFFILIATE_ID')['_joined'].to_dict()
@@ -750,7 +758,7 @@ jira_sales_records = []
 for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
     joined         = aff_joined_map[aff_id]
     first_week_end = min(joined + timedelta(days=7), TODAY)
-    n_sales        = int(rng.integers(_jira_min, _jira_max + 1))
+    n_sales        = max(JIRA_SALES_FLOOR, int(rng.lognormal(mean=JIRA_SALES_MU, sigma=JIRA_SALES_SIGMA)))
 
     for _ in range(n_sales):
         url_row  = group.sample(1).iloc[0]
@@ -783,6 +791,61 @@ if jira_sales_records:
     df_jira_guaranteed = pd.DataFrame(jira_sales_records)
     df_facts_sales     = pd.concat([df_facts_sales, df_jira_guaranteed], ignore_index=True)
     print(f'Ventas garantizadas Jira   : {len(df_jira_guaranteed):,}  ({len(jira_aff_ids)} afiliados)')
+
+# ── Ventas estacionales (eventos) ────────────────────────────────────────────
+# Se inyectan ventas extra en el período de cada evento para que el gráfico
+# de ventas diarias muestre picos visibles. Las ventas respetan el filtro de
+# categoría de producto cuando se especifica cat1_filter.
+pid_to_cat1 = df_dim_products.set_index('MARKETPLACE_PRODUCT_ID')['CATEGORY_AGG_1'].to_dict()
+
+print('\nEventos estacionales:')
+for ev in SALES_EVENTS:
+    ev_start = pd.Timestamp(ev['start'])
+    ev_end   = pd.Timestamp(ev['end']) + pd.Timedelta(hours=23, minutes=59, seconds=59)
+
+    ev_urls = df_urls[
+        (df_urls['_created_dt'] <= ev_end) &
+        (df_urls['_end_dt']     >= ev_start)
+    ].copy()
+
+    if ev.get('cat1_filter'):
+        ev_urls['_cat1'] = ev_urls['MARKETPLACE_PRODUCT_ID'].map(pid_to_cat1)
+        ev_urls = ev_urls[ev_urls['_cat1'].isin(ev['cat1_filter'])]
+        ev_urls.drop(columns=['_cat1'], inplace=True)
+
+    n_extra = ev['extra_sales']
+    if len(ev_urls) == 0 or n_extra == 0:
+        print(f'  {ev["name"]}: sin URLs activas, saltado')
+        continue
+
+    idx        = rng.integers(0, len(ev_urls), size=n_extra)
+    ev_sampled = ev_urls.iloc[idx].reset_index(drop=True)
+
+    dur_s   = max(int((ev_end - ev_start).total_seconds()), 1)
+    offsets = rng.integers(0, dur_s + 1, size=n_extra)
+    ev_sampled['PURCHASE_DATETIME'] = ev_start + pd.to_timedelta(offsets, unit='s')
+    ev_sampled['COUNTRY']  = ev_sampled['URL'].map(url_to_country).fillna('BRA')
+    ev_sampled['CURRENCY'] = ev_sampled['COUNTRY'].map(CURRENCY_MAP)
+
+    ev_prices = np.zeros(n_extra)
+    for country, (mu_p, sigma_p) in PRICE_LOGNORMAL.items():
+        lo, hi = PRICE_CLAMP[country]
+        m      = (ev_sampled['COUNTRY'] == country).values
+        if m.sum() > 0:
+            raw          = rng.lognormal(mean=mu_p, sigma=sigma_p, size=int(m.sum()))
+            ev_prices[m] = np.clip(np.round(raw, 2), lo, hi)
+    ev_sampled['PRICE']              = ev_prices
+    ev_sampled['AFFILIATE_ID']       = ev_sampled['URL'].map(url_to_aid)
+    ev_sampled['BUYER_MELI_USER_ID'] = rng.integers(10_000_000, 99_999_999, size=n_extra)
+
+    ev_df = ev_sampled[[
+        'URL', 'AFFILIATE_ID', 'BUYER_MELI_USER_ID', 'MARKETPLACE_PRODUCT_ID',
+        'PURCHASE_DATETIME', 'COUNTRY', 'CURRENCY', 'PRICE',
+    ]].copy()
+    ev_df['PURCHASE_DATETIME'] = ev_df['PURCHASE_DATETIME'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    df_facts_sales = pd.concat([df_facts_sales, ev_df], ignore_index=True)
+    print(f'  {ev["name"]:<28} +{n_extra:,} ventas')
 
 print('Total ventas           :', f'{len(df_facts_sales):,}')
 print('\nPrecio promedio por país:')
