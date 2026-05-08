@@ -40,7 +40,47 @@ Dimensión maestra de afiliados. Una fila por afiliado.
 
 ---
 
-### `FACTS_REGISTERED_SOCIAL_MEDIA`
+### `FACTS_AFFILIATES_MARKETPLACE_SALES`
+Compras completadas a través de un link de afiliado. Una fila por transacción.
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `URL` | STRING | FK → `FACTS_MARKETPLACE_AFFILIATE_URLS` |
+| `AFFILIATE_ID` | INTEGER | FK → `DIM_AFFILIATES` |
+| `BUYER_MELI_USER_ID` | INTEGER | ID del comprador en MELI |
+| `MARKETPLACE_PRODUCT_ID` | STRING | FK → `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
+| `PURCHASE_DATETIME` | DATETIME | Fecha y hora de la compra |
+| `COUNTRY` | STRING | País donde se realizó la compra |
+| `CURRENCY` | STRING | Moneda local (`ARS` · `BRL` · `CLP` · `MXN`) |
+| `PRICE` | FLOAT | Precio en moneda local |
+
+> Los precios están en **moneda local**, no en USD. Para comparar entre países hay que convertir.
+
+---
+
+### `DIM_AFFILIATES_MARKETPLACE_PRODUCTS`
+Catálogo de productos del Marketplace referenciados por los links de afiliado.
+
+| Columna | Tipo | Descripción |
+|---|---|---|
+| `MARKETPLACE_PRODUCT_ID` | STRING | Clave primaria (ej. `MLA-1234567`) |
+| `SELLER_MELI_USER_ID` | INTEGER | ID del vendedor en MELI |
+| `TITLE` | STRING | Título del producto |
+| `CATEGORY_AGG_1` | STRING | Categoría nivel 1 (ej. `Electrónica`) |
+| `CATEGORY_AGG_2` | STRING | Categoría nivel 2 (ej. `Celulares y Teléfonos`) |
+| `CATEGORY_AGG_3` | STRING | Categoría nivel 3 (ej. `Smartphones`) |
+| `CONDITION` | STRING | Estado del producto (`new` · `used`) |
+| `VISIBLE` | BOOLEAN | Si el producto está publicado actualmente |
+| `AVAILABLE_UNITS` | INTEGER | Stock disponible |
+| `PUBLICATION_DATETIME` | DATE | Fecha de publicación original |
+| `CALIFICATION` | FLOAT | Calificación promedio (1.0 – 5.0) |
+| `OPINIONS` | INTEGER | Cantidad de opiniones recibidas |
+
+**Categorías nivel 1:** `Electrónica` · `Ropa y Moda` · `Hogar y Deco` · `Deportes` · `Belleza y Salud` · `Alimentos` · `Juguetes y Bebés`
+ 
+ --
+
+ ### `FACTS_REGISTERED_SOCIAL_MEDIA`
 Todas las redes sociales declaradas por cada afiliado al registrarse. Un afiliado puede tener varias filas (una por plataforma).
 
 | Columna | Tipo | Descripción |
@@ -83,43 +123,3 @@ Registro de cada clic recibido por un link de afiliado.
 | `ACCESS_DATETIME` | DATETIME | Fecha y hora exacta del clic |
 
 > Para saber de qué afiliado es el link: `JOIN FACTS_MARKETPLACE_AFFILIATE_URLS USING (URL)`.
-
----
-
-### `FACTS_AFFILIATES_MARKETPLACE_SALES`
-Compras completadas a través de un link de afiliado. Una fila por transacción.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `URL` | STRING | FK → `FACTS_MARKETPLACE_AFFILIATE_URLS` |
-| `AFFILIATE_ID` | INTEGER | FK → `DIM_AFFILIATES` |
-| `BUYER_MELI_USER_ID` | INTEGER | ID del comprador en MELI |
-| `MARKETPLACE_PRODUCT_ID` | STRING | FK → `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
-| `PURCHASE_DATETIME` | DATETIME | Fecha y hora de la compra |
-| `COUNTRY` | STRING | País donde se realizó la compra |
-| `CURRENCY` | STRING | Moneda local (`ARS` · `BRL` · `CLP` · `MXN`) |
-| `PRICE` | FLOAT | Precio en moneda local |
-
-> Los precios están en **moneda local**, no en USD. Para comparar entre países hay que convertir.
-
----
-
-### `DIM_AFFILIATES_MARKETPLACE_PRODUCTS`
-Catálogo de productos del Marketplace referenciados por los links de afiliado.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `MARKETPLACE_PRODUCT_ID` | STRING | Clave primaria (ej. `MLA-1234567`) |
-| `SELLER_MELI_USER_ID` | INTEGER | ID del vendedor en MELI |
-| `TITLE` | STRING | Título del producto |
-| `CATEGORY_AGG_1` | STRING | Categoría nivel 1 (ej. `Electrónica`) |
-| `CATEGORY_AGG_2` | STRING | Categoría nivel 2 (ej. `Celulares y Teléfonos`) |
-| `CATEGORY_AGG_3` | STRING | Categoría nivel 3 (ej. `Smartphones`) |
-| `CONDITION` | STRING | Estado del producto (`new` · `used`) |
-| `VISIBLE` | BOOLEAN | Si el producto está publicado actualmente |
-| `AVAILABLE_UNITS` | INTEGER | Stock disponible |
-| `PUBLICATION_DATETIME` | DATE | Fecha de publicación original |
-| `CALIFICATION` | FLOAT | Calificación promedio (1.0 – 5.0) |
-| `OPINIONS` | INTEGER | Cantidad de opiniones recibidas |
-
-**Categorías nivel 1:** `Electrónica` · `Ropa y Moda` · `Hogar y Deco` · `Deportes` · `Belleza y Salud` · `Alimentos` · `Juguetes y Bebés`

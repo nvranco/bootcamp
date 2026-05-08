@@ -384,4 +384,4 @@ LAST_NAMES = {
 }
 
 # ── Directorio de salida ───────────────────────────────────────
-OUTPUT_DIR = 'output_data'
+OUTPUT_DIR = 'dw/output_data'
