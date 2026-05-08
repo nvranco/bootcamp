@@ -28,7 +28,6 @@ Afiliado se registra → publica links → usuarios hacen clic → se generan ve
 | [`FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS`](#facts_affiliates_marketplace_access_logs) | Log de clics en links de afiliado |
 | [`FACTS_MARKETPLACE_AFFILIATE_URLS`](#facts_marketplace_affiliate_urls) | Links de afiliado generados |
 | [`FACTS_REGISTERED_SOCIAL_MEDIA`](#facts_registered_social_media) | Redes sociales declaradas al registrarse |
-| [`FACTS_JIRA_HUNTING_AFILIADOS`](#facts_jira_hunting_afiliados) | Pipeline de prospección de nuevos afiliados (Jira) |
 
 ---
 
@@ -135,24 +134,3 @@ Registro de cada clic recibido por un link de afiliado.
 | `ACCESS_DATETIME` | DATETIME | Fecha y hora exacta del clic |
 
 > Para saber de qué afiliado es el link: `JOIN FACTS_MARKETPLACE_AFFILIATE_URLS USING (URL)`.
-
----
-
-### `FACTS_JIRA_HUNTING_AFILIADOS`
-Pipeline de prospección de nuevos afiliados. Una fila por prospecto gestionado en Jira.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `JIRA_KEY` | STRING | Clave del ticket en Jira |
-| `MELI_USERNAME` | STRING | Username en MELI del lead (NULL si no tiene cuenta) |
-| `HUNTER` | STRING | Nombre del hunter asignado |
-| `NOMBRE` | STRING | Nombre del prospecto |
-| `FECHA_ASIGNACION` | DATE | Fecha en que se asignó el lead al hunter |
-| `ULTIMO_CONTACTO` | DATE | Fecha del último contacto con el lead |
-| `INSTAGRAM` | STRING | Handle de Instagram del lead |
-| `TIKTOK` | STRING | Handle de TikTok del lead |
-| `ESTADO` | STRING | Estado en el funnel (`pool` · `asignado` · `contactado` · `afiliado` · `rechazado`) |
-| `ASIGNADO` | BOOLEAN | TRUE si el lead fue asignado a un hunter |
-| `CONTACTADO` | BOOLEAN | TRUE si el hunter contactó al lead al menos una vez |
-| `AFILIADO` | BOOLEAN | TRUE si el lead se convirtió en afiliado |
-| `RECHAZADO` | BOOLEAN | TRUE si el lead fue rechazado |
