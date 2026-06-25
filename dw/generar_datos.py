@@ -178,6 +178,30 @@ HUNTER_QUEUE = {
     for i, name in enumerate(HUNTER_NAMES)
 }
 
+# ── Pool de influencers argentinos (seed real + relleno procedural) ───────────
+def _split_name(full):
+    parts = full.split()
+    return parts[0], (' '.join(parts[1:]) if len(parts) > 1 else parts[0])
+
+influencer_pool = []
+used_h = set()   # global: clean(handle) único → evita colisión de MELI_USERNAME luego
+for cat in CATEGORIES:
+    profiles = []
+    for nombre_inf, handle_inf in INFLUENCERS_ARG_SEED.get(cat, []):
+        f_inf, l_inf = _split_name(nombre_inf)
+        profiles.append({'nombre': nombre_inf, 'ig_handle': handle_inf,
+                         'first': f_inf, 'last': l_inf, 'category': cat})
+        used_h.add(clean(handle_inf))
+    while len(profiles) < N_INFLUENCERS_PER_CAT:
+        f_inf, l_inf, nombre_inf = random_name('ARG')
+        handle_inf = make_handle(f_inf, l_inf)
+        if clean(handle_inf) in used_h:
+            continue
+        used_h.add(clean(handle_inf))
+        profiles.append({'nombre': nombre_inf, 'ig_handle': handle_inf,
+                         'first': f_inf, 'last': l_inf, 'category': cat})
+    influencer_pool.extend(profiles)
+
 # ── Fase 1: Generar todos los leads básicos ───────────────────────────────────
 raw_leads = []
 for i in range(N_JIRA_TOTAL):
@@ -191,6 +215,10 @@ for i in range(N_JIRA_TOTAL):
         has_ig = True
     ig_handle = make_handle(first, last) if has_ig else None
     tt_handle = make_handle(first, last) if has_tt else None
+
+    # ~20% de las veces el NOMBRE es el handle de IG (lead cargado por su @)
+    if ig_handle and random.random() < NOMBRE_HANDLE_PROB:
+        nombre = ig_handle
 
     if float(rng.random()) < JIRA_FUNNEL['pool']:
         hunter_idx       = None
@@ -213,8 +241,37 @@ for i in range(N_JIRA_TOTAL):
         '_fecha_asig':      fecha_asignacion,
         '_state':           'pool' if hunter_idx is None else None,
         '_ultimo_contacto': None,
+        '_is_influencer':   False,
+        '_inf_handle':      None,
         'NOMBRE':           nombre,
         'INSTAGRAM':        ig_handle,
+        'TIKTOK':           tt_handle,
+    })
+
+# ── Inyección de influencers (siempre asignados, nunca pool) ──────────────────
+for k, prof in enumerate(influencer_pool):
+    hunter_idx       = int(rng.choice(len(HUNTER_NAMES), p=_hunter_w))
+    t_frac           = _sample_t_frac()
+    fecha_asignacion = JIRA_START + timedelta(days=int(t_frac * JIRA_PERIOD_DAYS))
+    fecha_asignacion = min(fecha_asignacion, prev_business_day(TODAY - timedelta(days=1)))
+    fecha_asignacion = next_business_day(fecha_asignacion)
+
+    tt_handle = prof['ig_handle'] if random.random() < 0.8 else make_handle(prof['first'], prof['last'])
+
+    raw_leads.append({
+        '_i':               90_000 + k,
+        '_country':         'ARG',
+        '_first':           prof['first'],
+        '_last':            prof['last'],
+        '_category':        prof['category'],
+        '_hunter_idx':      hunter_idx,
+        '_fecha_asig':      fecha_asignacion,
+        '_state':           None,
+        '_ultimo_contacto': None,
+        '_is_influencer':   True,
+        '_inf_handle':      prof['ig_handle'],
+        'NOMBRE':           prof['nombre'],
+        'INSTAGRAM':        prof['ig_handle'],
         'TIKTOK':           tt_handle,
     })
 
@@ -241,20 +298,25 @@ for h_idx in range(len(HUNTER_NAMES)):
         hunter_delay = max(team_delay + HUNTER_DELAY_DELTA[hunter_name], 0.3)
         hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name], 0.03, 0.40))
 
-        if j < n_contact:
+        # Los influencers siempre son contactados (no caen en la cola pendiente)
+        if j < n_contact or lead['_is_influencer']:
             # Lead ya procesado por el hunter: fue contactado
             delay_days      = int(np.clip(rng.normal(hunter_delay, 1.5), 0, 14))
             contact_date    = next_business_day(fecha_asig + timedelta(days=delay_days))
             ultimo_contacto = min(contact_date, prev_business_day(TODAY - timedelta(days=1)))
             lead['_ultimo_contacto'] = ultimo_contacto
 
-            r = float(rng.random())
-            if r < hunter_cr:
-                lead['_state'] = 'afiliado'
-            elif r < hunter_cr + 0.55:
-                lead['_state'] = 'rechazado'
+            if lead['_is_influencer']:
+                # Alta conversión, nunca rechazado → llegan a fase final
+                lead['_state'] = 'afiliado' if rng.random() < INFLUENCER_AFILIADO_PROB else 'contactado'
             else:
-                lead['_state'] = 'contactado'
+                r = float(rng.random())
+                if r < hunter_cr:
+                    lead['_state'] = 'afiliado'
+                elif r < hunter_cr + 0.55:
+                    lead['_state'] = 'rechazado'
+                else:
+                    lead['_state'] = 'contactado'
         else:
             # Lead en cola de espera (los más recientes, cap HUNTER_MAX_QUEUE)
             lead['_state'] = 'asignado'
@@ -272,6 +334,8 @@ for lead in raw_leads:
         '_last':            lead['_last'],
         '_category':        lead['_category'],
         '_hunter_idx':      lead['_hunter_idx'],
+        '_is_influencer':   lead['_is_influencer'],
+        '_inf_handle':      lead['_inf_handle'],
         'NOMBRE':           lead['NOMBRE'],
         'INSTAGRAM':        lead['INSTAGRAM'],
         'TIKTOK':           lead['TIKTOK'],
@@ -283,6 +347,10 @@ df_jira_raw = pd.DataFrame(jira_rows)
 
 print('Leads Jira generados :', len(df_jira_raw))
 print(df_jira_raw['_state'].value_counts().to_string())
+_inf_df = df_jira_raw[df_jira_raw['_is_influencer']]
+print(f'\nInfluencers inyectados : {len(_inf_df)}  '
+      f'(afiliados: {(_inf_df["_state"] == "afiliado").sum()}, '
+      f'contactados: {(_inf_df["_state"] == "contactado").sum()})')
 print('\nCola y procesados por hunter:')
 for h_idx in range(len(HUNTER_NAMES)):
     name     = HUNTER_NAMES[h_idx]
@@ -308,7 +376,10 @@ for _, row in jira_aff_df.iterrows():
     first    = row['_first']
     last     = row['_last']
     raw_i    = int(row['_i'])
-    username = make_username(first, last, raw_i)
+    is_inf   = bool(row['_is_influencer'])
+    inf_handle = row['_inf_handle'] if is_inf else None
+    # Influencer → username derivado de su handle real (reconocible)
+    username = clean(inf_handle) if is_inf else make_username(first, last, raw_i)
     uid      = int(rng.integers(10_000_000, 99_999_999))
     _uc    = row['ULTIMO_CONTACTO']
     joined = datetime.strptime(_uc, '%Y-%m-%d') if _uc else rand_date(JIRA_START, TODAY - timedelta(days=3))
@@ -327,6 +398,8 @@ for _, row in jira_aff_df.iterrows():
         '_first':        first,
         '_last':         last,
         '_source':       'jira',
+        '_is_influencer': is_inf,
+        '_inf_handle':   inf_handle,
     })
 
 print('Afiliados Jira-sourced :', len(aff_records))
@@ -351,13 +424,19 @@ for i in range(n_organic):
         '_first':        first,
         '_last':         last,
         '_source':       'organic',
+        '_is_influencer': False,
+        '_inf_handle':   None,
     })
 
 df_affiliates = pd.DataFrame(aff_records)
 df_affiliates = df_affiliates.drop_duplicates('MELI_USERNAME').reset_index(drop=True)
 df_affiliates['AFFILIATE_ID'] = range(1, len(df_affiliates) + 1)
 
+# IDs de afiliados influencer (para boostear followers/URLs/clicks/ventas)
+influencer_aff_ids = set(df_affiliates[df_affiliates['_is_influencer']]['AFFILIATE_ID'])
+
 print('Total afiliados base   :', len(df_affiliates))
+print('Afiliados influencer   :', len(influencer_aff_ids))
 
 
 # ================================================================
@@ -369,15 +448,22 @@ sm_records = []
 sm_id_seq  = [1]
 
 for _, aff in df_affiliates.iterrows():
-    first = aff['_first']
-    last  = aff['_last']
-    aid   = aff['AFFILIATE_ID']
+    first  = aff['_first']
+    last   = aff['_last']
+    aid    = aff['AFFILIATE_ID']
+    is_inf = aff['_is_influencer']
 
     chosen = [p for p, prob in PLAT_PROB.items() if random.random() < prob]
     if not chosen:
         chosen = ['instagram']
+    if is_inf and 'instagram' not in chosen:
+        chosen = ['instagram'] + chosen   # el influencer siempre tiene IG
 
-    main_followers = int(follower_count(1)[0])
+    # Influencer: followers por encima de la media (300K–2M)
+    if is_inf:
+        main_followers = int(rng.uniform(INFLUENCER_FOLLOWER_LO, INFLUENCER_FOLLOWER_HI))
+    else:
+        main_followers = int(follower_count(1)[0])
 
     for j, plat in enumerate(chosen):
         if j == 0:
@@ -386,7 +472,11 @@ for _, aff in df_affiliates.iterrows():
             ratio     = float(rng.uniform(0.08, 0.75))
             followers = max(1_000, int(main_followers * ratio))
 
-        handle = make_handle(first, last)
+        # IG del influencer usa su handle real; el resto se generan
+        if plat == 'instagram' and is_inf:
+            handle = aff['_inf_handle']
+        else:
+            handle = make_handle(first, last)
         url    = PLAT_URL_TPL[plat] + handle
 
         sm_records.append({
@@ -439,6 +529,12 @@ df_dim_affiliates = df_affiliates[[
 print('\nDIM_AFFILIATES — handles backfilled:')
 print('  Con Instagram :', df_dim_affiliates['INSTAGRAM_HANDLE'].notna().sum())
 print('  Con TikTok    :', df_dim_affiliates['TIKTOK_HANDLE'].notna().sum())
+
+_is_inf_col = df_dim_affiliates['AFFILIATE_ID'].isin(influencer_aff_ids)
+_inf_fw     = df_dim_affiliates.loc[_is_inf_col, 'INSTAGRAM_FOLLOWER_COUNT'].dropna()
+_rest_fw    = df_dim_affiliates.loc[~_is_inf_col, 'INSTAGRAM_FOLLOWER_COUNT'].dropna()
+if len(_inf_fw) and len(_rest_fw):
+    print(f'  Followers IG promedio  : influencer {_inf_fw.mean():,.0f}  vs  resto {_rest_fw.mean():,.0f}')
 
 
 # ================================================================
@@ -580,6 +676,10 @@ for _, aff in df_affiliates.iterrows():
     mu_urls = np.log(max(days_aff / 25.0, 2.0))
     n_urls  = int(np.clip(rng.lognormal(mean=mu_urls, sigma=0.55), 2, 30))
 
+    # Influencer: más URLs (mayor actividad de promoción)
+    if aff['_is_influencer']:
+        n_urls = int(np.clip(n_urls * INFLUENCER_URL_MULT, 2, 60))
+
     sampled_pids = random.choices(product_pid_pool, k=n_urls)
 
     for pid in sampled_pids:
@@ -671,6 +771,12 @@ df_urls['_n_clicks'] = np.maximum(np.floor(n_clicks_scaled).astype(int), 0)
 whale_url_mask = df_urls['AFFILIATE_ID'].isin(whale_ids).values
 df_urls.loc[whale_url_mask, '_n_clicks'] = (
     df_urls.loc[whale_url_mask, '_n_clicks'] * WHALE_CLICK_MULTIPLIER
+).astype(int)
+
+# Influencers: amplificación más suave que las ballenas, para que destaquen
+influencer_url_mask = df_urls['AFFILIATE_ID'].isin(influencer_aff_ids).values
+df_urls.loc[influencer_url_mask, '_n_clicks'] = (
+    df_urls.loc[influencer_url_mask, '_n_clicks'] * INFLUENCER_CLICK_MULT
 ).astype(int)
 
 total_clicks = int(df_urls['_n_clicks'].sum())
@@ -777,6 +883,8 @@ for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
     joined         = aff_joined_map[aff_id]
     first_week_end = min(joined + timedelta(days=7), TODAY)
     n_sales        = max(JIRA_SALES_FLOOR, int(rng.lognormal(mean=JIRA_SALES_MU, sigma=JIRA_SALES_SIGMA)))
+    if aff_id in influencer_aff_ids:
+        n_sales = int(n_sales * INFLUENCER_SALES_MULT)   # influencer vende más
 
     for _ in range(n_sales):
         url_row  = group.sample(1).iloc[0]

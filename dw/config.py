@@ -293,6 +293,77 @@ JIRA_FUNNEL = {
     'afiliado':   0.04,
 }
 
+# ── Componente random en NOMBRE (FACTS_JIRA_HUNTING_AFILIADOS) ──
+# Probabilidad de que el NOMBRE del lead sea su handle de Instagram en vez del
+# nombre real (simula al hunter cargando el lead por su @). Solo leads normales;
+# los influencers conservan su nombre real para que sean reconocibles.
+NOMBRE_HANDLE_PROB = 0.20
+
+# ── Influencers argentinos inyectados al pool de Jira ──────────
+# Se inyectan N_INFLUENCERS_PER_CAT por rubro (todos COUNTRY='ARG'), con alta
+# probabilidad de afiliarse y métricas por encima de la media (followers, URLs,
+# clicks, ventas). No llevan flag en los datos: destacan solo por sus métricas.
+N_INFLUENCERS_PER_CAT    = 100      # influencers por rubro (9 rubros ≈ 900)
+INFLUENCER_AFILIADO_PROB = 0.80     # prob. de cerrar como 'afiliado' (resto 'contactado')
+INFLUENCER_FOLLOWER_LO   = 300_000  # piso de followers de influencer
+INFLUENCER_FOLLOWER_HI   = 2_000_000
+INFLUENCER_URL_MULT      = 2        # multiplicador de URLs generadas
+INFLUENCER_CLICK_MULT    = 5        # multiplicador de clicks (estilo ballena suave)
+INFLUENCER_SALES_MULT    = 2        # multiplicador de ventas garantizadas
+
+# Seed de influencers argentinos reales por rubro: (nombre, handle_instagram).
+# El generador rellena cada rubro hasta N_INFLUENCERS_PER_CAT con perfiles ARG
+# generados a partir de los pools de nombres.
+INFLUENCERS_ARG_SEED = {
+    'lifestyle': [
+        ('Alejo Igoa', 'alejoigoa'), ('Belén Lupinacci', 'belulupinacci'),
+        ('Flor Jazmín Peña', 'florjazminp'), ('Nati Jota', 'natijota'),
+        ('Belu Lucius', 'belulucius'), ('Connie Isla', 'conniisla'),
+        ('Stephanie Demner', 'stephaniedemner'), ('Zaira Nara', 'zairanara'),
+        ('Juana Repetto', 'juanarepettook'), ('Cande Molfese', 'candelariamolfese'),
+        ('Ivana Nadal', 'ivunadal'), ('Sofía Gonet', 'lareinadelflow'),
+    ],
+    'beauty': [
+        ('Cande Copello', 'candecopello'), ('Luz Rearte', 'luzrearte'),
+        ('Sofi Morandi', 'sofiamorandi'), ('Pin Up Snijders', 'pinupsnijders'),
+        ('Maru Marengo', 'marumarengo'), ('Agus Padilla', 'aguspadillaa'),
+    ],
+    'fitness': [
+        ('Mai Pistiner', 'maipistiner'), ('Magui Bravi', 'maguibravi'),
+        ('Sofía Pachano', 'sofiapachano'), ('Caro Calvagni', 'carocalvagni'),
+        ('Noe Antonelli', 'noeantonelli'),
+    ],
+    'tech': [
+        ('Pelado Nerd', 'peladonerd'), ('Lucas Mostazo', 'lucasmostazo'),
+        ('Tecmonster', 'tecmonster'), ('Nardweb', 'nardweb'),
+        ('Franco Cavallone', 'francocavallone'),
+    ],
+    'food': [
+        ('Paulina Cocina', 'paulinacocina'), ('Narda Lepes', 'nardalepes'),
+        ('Maru Botana', 'marubotana'), ('Felicitas Pizarro', 'felicitaspizarro'),
+        ('Juan Ferrara', 'juanferrara'), ('Coco Carreño', 'cococarreno'),
+    ],
+    'travel': [
+        ('Cecilia Volando', 'cecivolando'), ('Martina Tupi', 'tupiviajera'),
+        ('Plan B Viajero', 'planbviajero'), ('Algarrobo Travel', 'algarrobotravel'),
+    ],
+    'home_deco': [
+        ('Deco con Alma', 'decoconalma'), ('Mica Deco', 'micadeco'),
+        ('Estudio Caramba', 'estudiocaramba'),
+    ],
+    'education': [
+        ('Mate con Vos', 'matevos'), ('Profe Hernán', 'profehernan'),
+        ('Inglés con Pablo', 'inglesconpablo'),
+    ],
+    'other': [
+        ('Coscu', 'coscu'), ('Spreen', 'spreen'), ('Davoo Xeneize', 'davooxeneize'),
+        ('Momo', 'momoochii'), ('Goncho Banzas', 'goncho'),
+        ('Migue Granados', 'miguegranados'), ('Lizardo Ponce', 'lizardoponce'),
+        ('Grego Rosello', 'gregorosello'), ('Martín Cirio', 'lafaraona'),
+        ('Frankkaster', 'frankkaster'),
+    ],
+}
+
 # ── Nombres por país ───────────────────────────────────────────
 FIRST_NAMES = {
     'ARG': [
