@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, date
 SEED = 42
 
 # ── Fecha de corte ─────────────────────────────────────────────
-TODAY      = datetime(2026, 4, 26)
+TODAY      = datetime(2026, 6, 27)
 JIRA_START = TODAY - timedelta(days=150)
 
 PROGRAM_LAUNCH = {
@@ -212,6 +212,10 @@ ARG_HOLIDAYS = {
     date(2026,  3, 24),  # Día de la Memoria
     date(2026,  4,  2),  # Día del Veterano (Malvinas)
     date(2026,  4, 17),  # Viernes Santo
+    date(2026,  5,  1),  # Día del Trabajador
+    date(2026,  5, 25),  # Revolución de Mayo
+    date(2026,  6, 15),  # Paso a la Inmortalidad del Gral. Güemes (trasladado al lunes)
+    date(2026,  6, 20),  # Día de la Bandera
 }
 
 # ── Eventos de ventas estacionales ────────────────────────────
