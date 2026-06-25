@@ -177,21 +177,22 @@ WHALE_CLICK_MULTIPLIER = 60
 # Los nombres son los displayName reales del tablero Jira (proyecto AFHU).
 # Orden canónico: alto → medio → medio-bajo (Fede / Fran / Nico).
 HUNTER_NAMES = [
-    'federico Quinteros',   # Fede — performance alto
-    'rodfran98',            # Fran — performance medio
-    'Nicolás Vrancovich',   # Nico — performance medio-bajo
+    'Federico Quinteros',   # Fede
+    'Francisco Rodriguez',  # Fran
+    'Nicolás Vrancovich',   # Nico
 ]
 
 # accountId de Atlassian de cada hunter (para cruzar con la API de Jira)
 HUNTER_JIRA_ID = {
-    'federico Quinteros': '5f26e76870fb250022df96f8',
-    'rodfran98':          '712020:5ec99a7e-5928-4361-9ccd-9d6549e14b12',
-    'Nicolás Vrancovich': '70121:06a5f854-7183-43e5-a317-3b5a446f03ca',
+    'Federico Quinteros':  '5f26e76870fb250022df96f8',
+    'Francisco Rodriguez': '712020:5ec99a7e-5928-4361-9ccd-9d6549e14b12',
+    'Nicolás Vrancovich':  '70121:06a5f854-7183-43e5-a317-3b5a446f03ca',
 }
 
-# Throughput relativo de cada hunter (afecta cuántos leads procesa).
+# Throughput relativo de cada hunter (afecta cuántos leads procesa = "contactos").
 # Sin guion bajo → importable con `from config import *` (lo usa generar_datos.py).
-HUNTER_THROUGHPUT = np.array([1.30, 1.00, 0.75])   # Fede / Fran / Nico
+# Fran contacta mucho, Fede media-alta, Nico media-bajo.
+HUNTER_THROUGHPUT = np.array([1.10, 1.40, 0.75])   # Fede / Fran / Nico
 HUNTER_W          = (HUNTER_THROUGHPUT / HUNTER_THROUGHPUT.sum()).tolist()
 
 # ── Ruido semanal en productividad de hunters ─────────────────
@@ -268,17 +269,19 @@ HUNTER_RAMP_WEEKS  =   12.0   # semanas para alcanzar la tasa máxima
 HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
 
 # Offset de tiempo de respuesta vs. la media del equipo (días; negativo = más rápido)
+# Alineado con el volumen de contactos: más actividad → responde más rápido.
 HUNTER_DELAY_DELTA = {
-    'federico Quinteros': -1.0,   # Fede contesta más rápido
-    'rodfran98':           0.0,   # Fran en la media
-    'Nicolás Vrancovich': +1.2,   # Nico más lento
+    'Federico Quinteros': -0.3,   # Fede media-alta actividad
+    'Francisco Rodriguez':-1.0,   # Fran muy activo, contesta rápido
+    'Nicolás Vrancovich': +1.2,   # Nico menos activo, más lento
 }
 
 # Offset de tasa de conversión vs. la media del equipo (positivo = mejor)
+# Fran convierte poco (volumen pero baja calidad), Fede medio, Nico alto.
 HUNTER_CR_DELTA = {
-    'federico Quinteros': +0.06,  # Fede convierte más
-    'rodfran98':           0.00,  # Fran en la media
-    'Nicolás Vrancovich': -0.05,  # Nico convierte menos
+    'Federico Quinteros':  0.00,  # Fede conversión media
+    'Francisco Rodriguez':-0.06,  # Fran conversión baja
+    'Nicolás Vrancovich': +0.05,  # Nico conversión medio-alta
 }
 
 # ── Funnel Jira ────────────────────────────────────────────────

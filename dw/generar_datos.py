@@ -140,8 +140,6 @@ def _hunter_rate(t_w):
     return HUNTER_RATE_MAX
 
 _r_pts = np.array([_hunter_rate(t) for t in _t_pts])
-# Capacidad total basada en la curva smooth (independiente del ruido semanal)
-_total_contacts_avg = float(np.trapezoid(_r_pts, _t_pts))
 
 # Ruido semanal: cada semana del período recibe un multiplicador LogNormal(0, σ).
 # Semilla separada para que el ruido sea reproducible pero independiente del resto.
@@ -167,10 +165,16 @@ def _sample_t_frac():
     t_w    = _t_pts[idx] + frac * (_t_pts[idx + 1] - _t_pts[idx])
     return t_w / JIRA_PERIOD_WEEKS
 
-# ── Capacidad total por hunter = integral de la curva × throughput relativo ───
+# ── Cola pendiente por hunter al cierre del período ───────────────────────────
+# Los hunters contactan sus leads en orden FIFO y solo dejan sin contactar los
+# más recientes (los que todavía no llegaron a procesar). El tamaño de esa cola
+# parte de HUNTER_MAX_QUEUE y escala inverso al throughput: el hunter de menor
+# performance arrastra una cola más grande. Esto reparte los contactos por todo
+# el período (evita el "corte" artificial de fechas) en vez de saturar la
+# capacidad con los leads más viejos.
 _mean_w = float(np.mean(_ht))
-HUNTER_CAPACITY = {
-    name: int(_total_contacts_avg * (_ht[i] / _mean_w))
+HUNTER_QUEUE = {
+    name: int(round(HUNTER_MAX_QUEUE * _mean_w / _ht[i]))
     for i, name in enumerate(HUNTER_NAMES)
 }
 
@@ -217,13 +221,16 @@ for i in range(N_JIRA_TOTAL):
 # ── Fase 2: Procesar leads por hunter en orden FIFO ──────────────────────────
 for h_idx in range(len(HUNTER_NAMES)):
     hunter_name = HUNTER_NAMES[h_idx]
-    capacity    = HUNTER_CAPACITY[hunter_name]
+    queue_size  = HUNTER_QUEUE[hunter_name]
 
     # Solo los leads de este hunter
     h_leads = [l for l in raw_leads if l['_hunter_idx'] == h_idx]
 
     # FIFO: más antiguo primero
     h_leads.sort(key=lambda l: l['_fecha_asig'])
+
+    # Contacta todos menos los `queue_size` más recientes (cola pendiente al cierre)
+    n_contact = max(len(h_leads) - queue_size, 0)
 
     for j, lead in enumerate(h_leads):
         fecha_asig = lead['_fecha_asig']
@@ -234,8 +241,8 @@ for h_idx in range(len(HUNTER_NAMES)):
         hunter_delay = max(team_delay + HUNTER_DELAY_DELTA[hunter_name], 0.3)
         hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name], 0.03, 0.40))
 
-        if j < capacity:
-            # Lead dentro de la capacidad del hunter: fue contactado
+        if j < n_contact:
+            # Lead ya procesado por el hunter: fue contactado
             delay_days      = int(np.clip(rng.normal(hunter_delay, 1.5), 0, 14))
             contact_date    = next_business_day(fecha_asig + timedelta(days=delay_days))
             ultimo_contacto = min(contact_date, prev_business_day(TODAY - timedelta(days=1)))
@@ -276,14 +283,14 @@ df_jira_raw = pd.DataFrame(jira_rows)
 
 print('Leads Jira generados :', len(df_jira_raw))
 print(df_jira_raw['_state'].value_counts().to_string())
-print('\nCapacidad y cola por hunter:')
+print('\nCola y procesados por hunter:')
 for h_idx in range(len(HUNTER_NAMES)):
     name     = HUNTER_NAMES[h_idx]
-    cap      = HUNTER_CAPACITY[name]
+    queue    = HUNTER_QUEUE[name]
     h_df     = df_jira_raw[df_jira_raw['_hunter_idx'] == h_idx]
     n_asig   = (h_df['_state'] == 'asignado').sum()
     n_proc   = len(h_df) - n_asig
-    print(f'  {name:<22}  cap={cap:4d}  leads={len(h_df):5d}  proc={n_proc:5d}  asig={n_asig:3d}')
+    print(f'  {name:<22}  cola={queue:4d}  leads={len(h_df):5d}  proc={n_proc:5d}  asig={n_asig:3d}')
 
 
 # ================================================================
@@ -479,16 +486,16 @@ df_facts_jira = pd.DataFrame(jira_out)
 
 # ── Leads de test — para ejercicio de filtrado SQL del bootcamp ──────────────
 # Detección: LOWER(NOMBRE) LIKE '%test%'
-_ID_FEDE = HUNTER_JIRA_ID['federico Quinteros']
-_ID_FRAN = HUNTER_JIRA_ID['rodfran98']
+_ID_FEDE = HUNTER_JIRA_ID['Federico Quinteros']
+_ID_FRAN = HUNTER_JIRA_ID['Francisco Rodriguez']
 _ID_NICO = HUNTER_JIRA_ID['Nicolás Vrancovich']
 _test_rows = [
-    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'FECHA_ASIGNACION':'2026-01-20','ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'rodfran98',         'HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':'2026-02-10','ULTIMO_CONTACTO':'2026-02-12','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'FECHA_ASIGNACION':'2026-01-20','ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':'2026-02-10','ULTIMO_CONTACTO':'2026-02-12','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
     {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','FECHA_ASIGNACION':'2026-01-15','ULTIMO_CONTACTO':'2026-01-17','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':'2026-03-05','ULTIMO_CONTACTO':'2026-03-07','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
+    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':'2026-03-05','ULTIMO_CONTACTO':'2026-03-07','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
     {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'FECHA_ASIGNACION':None,       'ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'rodfran98',         'HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'FECHA_ASIGNACION':'2026-02-24','ULTIMO_CONTACTO':'2026-02-25','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'FECHA_ASIGNACION':'2026-02-24','ULTIMO_CONTACTO':'2026-02-25','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
 ]
 df_facts_jira = pd.concat([df_facts_jira, pd.DataFrame(_test_rows)], ignore_index=True)
 print(f'  >> {len(_test_rows)} leads de test inyectados (HUNT-99980 a HUNT-99985)')
