@@ -174,15 +174,25 @@ N_WHALES               = 123
 WHALE_CLICK_MULTIPLIER = 60
 
 # ── Hunters ────────────────────────────────────────────────────
+# Los nombres son los displayName reales del tablero Jira (proyecto AFHU).
+# Orden canónico: alto → medio → medio-bajo (Fede / Fran / Nico).
 HUNTER_NAMES = [
-    'Ana González',    'Carlos Mendez',    'Valentina Torres',
-    'Bruno Alves',     'Sofía Ramírez',
-    'Daniela Reyes',   'Tomás Herrera',    'Camila Vargas',
+    'federico Quinteros',   # Fede — performance alto
+    'rodfran98',            # Fran — performance medio
+    'Nicolás Vrancovich',   # Nico — performance medio-bajo
 ]
 
-# Throughput relativo de cada hunter (afecta cuántos leads procesa)
-_ht      = np.array([0.70, 0.85, 1.00, 1.25, 1.40, 0.90, 0.75, 0.80])
-HUNTER_W = (_ht / _ht.sum()).tolist()
+# accountId de Atlassian de cada hunter (para cruzar con la API de Jira)
+HUNTER_JIRA_ID = {
+    'federico Quinteros': '5f26e76870fb250022df96f8',
+    'rodfran98':          '712020:5ec99a7e-5928-4361-9ccd-9d6549e14b12',
+    'Nicolás Vrancovich': '70121:06a5f854-7183-43e5-a317-3b5a446f03ca',
+}
+
+# Throughput relativo de cada hunter (afecta cuántos leads procesa).
+# Sin guion bajo → importable con `from config import *` (lo usa generar_datos.py).
+HUNTER_THROUGHPUT = np.array([1.30, 1.00, 0.75])   # Fede / Fran / Nico
+HUNTER_W          = (HUNTER_THROUGHPUT / HUNTER_THROUGHPUT.sum()).tolist()
 
 # ── Ruido semanal en productividad de hunters ─────────────────
 # Cada semana recibe un multiplicador LogNormal(0, σ) independiente.
@@ -253,28 +263,18 @@ HUNTER_RATE_MAX    = 140.0   # contactos/semana al estabilizarse
 HUNTER_RAMP_WEEKS  =   12.0   # semanas para alcanzar la tasa máxima
 HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
 
-# Offset de tiempo de respuesta vs. la media del equipo (días)
+# Offset de tiempo de respuesta vs. la media del equipo (días; negativo = más rápido)
 HUNTER_DELAY_DELTA = {
-    'Ana González':      -0.6,
-    'Carlos Mendez':     +0.4,
-    'Valentina Torres':  -0.1,
-    'Bruno Alves':       -1.1,
-    'Sofía Ramírez':     +1.4,
-    'Daniela Reyes':     -0.5,
-    'Tomás Herrera':     +0.8,
-    'Camila Vargas':     +0.2,
+    'federico Quinteros': -1.0,   # Fede contesta más rápido
+    'rodfran98':           0.0,   # Fran en la media
+    'Nicolás Vrancovich': +1.2,   # Nico más lento
 }
 
-# Offset de tasa de conversión vs. la media del equipo
+# Offset de tasa de conversión vs. la media del equipo (positivo = mejor)
 HUNTER_CR_DELTA = {
-    'Ana González':      -0.06,
-    'Carlos Mendez':     -0.03,
-    'Valentina Torres':   0.00,
-    'Bruno Alves':       +0.03,
-    'Sofía Ramírez':     +0.06,
-    'Daniela Reyes':     +0.04,
-    'Tomás Herrera':     -0.02,
-    'Camila Vargas':     +0.01,
+    'federico Quinteros': +0.06,  # Fede convierte más
+    'rodfran98':           0.00,  # Fran en la media
+    'Nicolás Vrancovich': -0.05,  # Nico convierte menos
 }
 
 # ── Funnel Jira ────────────────────────────────────────────────

@@ -38,7 +38,8 @@ SCHEMAS = {
     'FACTS_JIRA_HUNTING_AFILIADOS': [
         bigquery.SchemaField('JIRA_KEY',         'STRING',  description='Clave del ticket en Jira'),
         bigquery.SchemaField('MELI_USERNAME',    'STRING',  description='Username en MELI del lead (NULL si no tiene cuenta)'),
-        bigquery.SchemaField('HUNTER',           'STRING',  description='Nombre del hunter asignado'),
+        bigquery.SchemaField('HUNTER',           'STRING',  description='Nombre del hunter asignado (displayName en Jira)'),
+        bigquery.SchemaField('HUNTER_JIRA_ID',   'STRING',  description='accountId del hunter en Jira (NULL si lead en pool)'),
         bigquery.SchemaField('NOMBRE',           'STRING',  description='Nombre del prospecto'),
         bigquery.SchemaField('FECHA_ASIGNACION', 'DATE',    description='Fecha en que se asignó el lead al hunter'),
         bigquery.SchemaField('ULTIMO_CONTACTO',  'DATE',    description='Fecha del último contacto con el lead'),
