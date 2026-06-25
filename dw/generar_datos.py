@@ -489,13 +489,20 @@ df_facts_jira = pd.DataFrame(jira_out)
 _ID_FEDE = HUNTER_JIRA_ID['Federico Quinteros']
 _ID_FRAN = HUNTER_JIRA_ID['Francisco Rodriguez']
 _ID_NICO = HUNTER_JIRA_ID['Nicolás Vrancovich']
+
+# Fechas ancladas a la ventana operativa (no hardcodeadas) para que los test
+# caigan siempre dentro del período denso y no creen semanas aisladas con
+# conversión 100 % al inicio, aun si cambia TODAY.
+def _td(days):
+    return (JIRA_START + timedelta(days=days)).strftime('%Y-%m-%d')
+
 _test_rows = [
-    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'FECHA_ASIGNACION':'2026-01-20','ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':'2026-02-10','ULTIMO_CONTACTO':'2026-02-12','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','FECHA_ASIGNACION':'2026-01-15','ULTIMO_CONTACTO':'2026-01-17','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':'2026-03-05','ULTIMO_CONTACTO':'2026-03-07','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
-    {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'FECHA_ASIGNACION':None,       'ULTIMO_CONTACTO':None,        'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'FECHA_ASIGNACION':'2026-02-24','ULTIMO_CONTACTO':'2026-02-25','INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'FECHA_ASIGNACION':_td(60),'ULTIMO_CONTACTO':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':_td(45),'ULTIMO_CONTACTO':_td(47),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','FECHA_ASIGNACION':_td(50),'ULTIMO_CONTACTO':_td(52),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':_td(70),'ULTIMO_CONTACTO':_td(72),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
+    {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'FECHA_ASIGNACION':None,    'ULTIMO_CONTACTO':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'FECHA_ASIGNACION':_td(55),'ULTIMO_CONTACTO':_td(57),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
 ]
 df_facts_jira = pd.concat([df_facts_jira, pd.DataFrame(_test_rows)], ignore_index=True)
 print(f'  >> {len(_test_rows)} leads de test inyectados (HUNT-99980 a HUNT-99985)')
