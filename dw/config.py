@@ -25,7 +25,7 @@ PROGRAM_LAUNCH = {
 
 # ── Escala ─────────────────────────────────────────────────────
 N_AFFILIATES         = 50_000   # total de afiliados en el programa
-N_JIRA_TOTAL         = 20_000   # total de leads en el tablero Jira
+N_JIRA_TOTAL         = 6_700    # total de leads en el tablero Jira (dimensionado para ~6.850 contactos)
 N_PRODUCT_POOL       = 12_000   # productos en el pool del marketplace
 N_TARGET_ACCESS_LOGS = 100_000  # volumen total de access logs (clics)
 
@@ -263,8 +263,8 @@ SALES_EVENTS = [
 # Ramp-up de contactos por semana (hunter promedio).
 # Progresión logarítmica: sube rápido en las primeras HUNTER_RAMP_WEEKS semanas
 # y se estabiliza en HUNTER_RATE_MAX a partir de ahí.
-HUNTER_RATE_START  =  80.0   # contactos/semana al inicio del período
-HUNTER_RATE_MAX    = 140.0   # contactos/semana al estabilizarse
+HUNTER_RATE_START  =  50.0   # contactos/semana al inicio del período
+HUNTER_RATE_MAX    = 120.0   # contactos/semana al estabilizarse
 HUNTER_RAMP_WEEKS  =   12.0   # semanas para alcanzar la tasa máxima
 HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
 
@@ -286,7 +286,7 @@ HUNTER_CR_DELTA = {
 
 # ── Funnel Jira ────────────────────────────────────────────────
 JIRA_FUNNEL = {
-    'pool':       0.33,   # reducido para que haya suficiente volumen para el ramp 80→150/sem/hunter
+    'pool':       0.06,   # ~0.06 × N_JIRA_TOTAL ≈ 400 leads sin asignar en el pool
     'asignado':   0.10,
     'contactado': 0.10,
     'rechazado':  0.16,
