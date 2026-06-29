@@ -7,9 +7,18 @@ from google.cloud import bigquery
 import os
 
 # ── Configuración ─────────────────────────────────────────────
-PROJECT_ID = 'afiliados-490100'
-DATASET    = 'DW'
-INPUT_DIR  = 'dw/output_data'
+PROJECT_ID    = 'afiliados-490100'
+DATASET       = 'DW'      # dataset por defecto
+ADMIN_DATASET = 'ADMIN'   # dataset alternativo para tablas internas
+INPUT_DIR     = 'dw/output_data'
+
+# Estas tablas se cargan en ADMIN en vez de DW.
+ADMIN_TABLES = {
+    'FACTS_REGISTERED_SOCIAL_MEDIA',
+    'FACTS_MARKETPLACE_AFFILIATE_URLS',
+    'FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS',
+    'FACTS_JIRA_HUNTING_AFILIADOS',
+}
 # ──────────────────────────────────────────────────────────────
 
 client = bigquery.Client(project=PROJECT_ID)
@@ -91,7 +100,8 @@ SCHEMAS = {
 
 def cargar_tabla(table_name):
     csv_path  = os.path.join(INPUT_DIR, table_name + '.csv')
-    table_ref = f'{PROJECT_ID}.{DATASET}.{table_name}'
+    dataset   = ADMIN_DATASET if table_name in ADMIN_TABLES else DATASET
+    table_ref = f'{PROJECT_ID}.{dataset}.{table_name}'
 
     job_config = bigquery.LoadJobConfig(
         schema            = SCHEMAS[table_name],
@@ -107,11 +117,11 @@ def cargar_tabla(table_name):
     job.result()  # espera a que termine
 
     tabla = client.get_table(table_ref)
-    print(f'  OK  {table_name:<50} {tabla.num_rows:>9,} filas')
+    print(f'  OK  [{dataset:<5}] {table_name:<50} {tabla.num_rows:>9,} filas')
 
 
 print(f'Proyecto : {PROJECT_ID}')
-print(f'Dataset  : {DATASET}')
+print(f'Datasets : {DATASET} (defecto) · {ADMIN_DATASET} ({len(ADMIN_TABLES)} tablas internas)')
 print('-' * 72)
 
 errores = []

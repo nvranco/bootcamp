@@ -25,9 +25,6 @@ Afiliado se registra → publica links → usuarios hacen clic → se generan ve
 | [`DIM_AFFILIATES`](#dim_affiliates) | Dimensión maestra de afiliados — una fila por afiliado |
 | [`DIM_AFFILIATES_MARKETPLACE_PRODUCTS`](#dim_affiliates_marketplace_products) | Catálogo de productos del Marketplace |
 | [`FACTS_AFFILIATES_MARKETPLACE_SALES`](#facts_affiliates_marketplace_sales) | Transacciones completadas a través de links de afiliado |
-| [`FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS`](#facts_affiliates_marketplace_access_logs) | Log de clics en links de afiliado |
-| [`FACTS_MARKETPLACE_AFFILIATE_URLS`](#facts_marketplace_affiliate_urls) | Links de afiliado generados |
-| [`FACTS_REGISTERED_SOCIAL_MEDIA`](#facts_registered_social_media) | Redes sociales declaradas al registrarse |
 
 ---
 
@@ -56,7 +53,7 @@ Compras completadas a través de un link de afiliado. Una fila por transacción.
 
 | Columna | Tipo | Descripción |
 |---|---|---|
-| `URL` | STRING | FK → `FACTS_MARKETPLACE_AFFILIATE_URLS` |
+| `URL` | STRING | Link de afiliado que originó la venta |
 | `AFFILIATE_ID` | INTEGER | FK → `DIM_AFFILIATES` |
 | `BUYER_MELI_USER_ID` | INTEGER | ID del comprador en MELI |
 | `MARKETPLACE_PRODUCT_ID` | STRING | FK → `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
@@ -88,49 +85,3 @@ Catálogo de productos del Marketplace referenciados por los links de afiliado.
 | `OPINIONS` | INTEGER | Cantidad de opiniones recibidas |
 
 **Categorías nivel 1:** `Electrónica` · `Ropa y Moda` · `Hogar y Deco` · `Deportes` · `Belleza y Salud` · `Alimentos` · `Juguetes y Bebés`
-
----
-
-### `FACTS_REGISTERED_SOCIAL_MEDIA`
-Todas las redes sociales declaradas por cada afiliado al registrarse. Un afiliado puede tener varias filas (una por plataforma).
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `SM_ID` | INTEGER | Clave primaria |
-| `AFFILIATE_ID` | INTEGER | FK → `DIM_AFFILIATES` |
-| `SOCIAL_MEDIA` | STRING | Plataforma |
-| `URL` | STRING | URL del perfil |
-| `FOLLOWERS` | INTEGER | Seguidores al momento del registro |
-
-**Valores posibles de `SOCIAL_MEDIA`:** `instagram` · `tiktok` · `youtube` · `facebook` · `x` · `other`
-
-> **Nota:** `DIM_AFFILIATES` solo guarda Instagram y TikTok (las principales).
-> `FACTS_REGISTERED_SOCIAL_MEDIA` es la fuente completa de todas las plataformas.
-
----
-
-### `FACTS_MARKETPLACE_AFFILIATE_URLS`
-Cada link de afiliado generado. Un afiliado puede tener muchos links (uno por producto que promociona).
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `URL` | STRING | Clave primaria — link único de afiliado |
-| `AFFILIATE_ID` | INTEGER | FK → `DIM_AFFILIATES` |
-| `MARKETPLACE_PRODUCT_ID` | STRING | FK → `DIM_AFFILIATES_MARKETPLACE_PRODUCTS` |
-| `CREATED_AT` | DATE | Fecha de creación del link |
-| `CLOSED_AT` | DATE | Fecha en que se desactivó el link (NULL si sigue activo) |
-
-> Un link con `CLOSED_AT IS NULL` está **activo**. Con fecha, está **cerrado**.
-
----
-
-### `FACTS_AFFILIATES_MARKETPLACE_ACCESS_LOGS`
-Registro de cada clic recibido por un link de afiliado.
-
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `URL` | STRING | FK → `FACTS_MARKETPLACE_AFFILIATE_URLS` |
-| `MELI_USERNAME` | STRING | Usuario de MELI que hizo el clic |
-| `ACCESS_DATETIME` | DATETIME | Fecha y hora exacta del clic |
-
-> Para saber de qué afiliado es el link: `JOIN FACTS_MARKETPLACE_AFFILIATE_URLS USING (URL)`.
