@@ -299,6 +299,33 @@ JIRA_FUNNEL = {
 # los influencers conservan su nombre real para que sean reconocibles.
 NOMBRE_HANDLE_PROB = 0.20
 
+# ── Prioridad de leads Jira (1-5; se usan 2-5, pico en 3) ──────
+# La PRIORIDAD modela la importancia del lead. La mayoría cae en 3 (medium);
+# 2 y 4 son los hombros y 5 la colita (estilo gamma). La prioridad modifica el
+# comportamiento: más prioridad → más conversión, más followers y más ventas.
+PRIORITY_LEVELS       = [2, 3, 4, 5]
+PRIORITY_W_NORMAL     = [0.21, 0.57, 0.18, 0.04]   # leads normales: pico en 3, casi nada en 5
+PRIORITY_W_INFLUENCER = [0.00, 0.00, 0.30, 0.70]   # influencers: mayoría 5, algunos 4
+
+# Efecto de la prioridad (moderado). Todo relativo a P3 (neutro).
+PRIORITY_CR_DELTA   = {2: -0.06, 3: 0.00, 4: 0.06, 5: 0.12}   # pp sumados a la prob. de afiliar
+PRIORITY_SALES_MULT = {2: 0.6,  3: 1.0, 4: 1.6, 5: 2.5}       # multiplicador de ventas garantizadas
+PRIORITY_FAME_MULT  = {2: 0.7,  3: 1.0, 4: 1.8, 5: 3.0}       # multiplicador de followers (leads normales)
+PRIORITY_INFLU_FAME = {4: 1.0,  5: 1.3}                       # nudge extra de followers para influencer elite
+
+# Demora entre FECHA_CONTACTO y FECHA_CIERRE (días; solo afiliado/rechazado).
+CLOSE_DELAY_MEAN = 5.0
+CLOSE_DELAY_SD   = 4.0
+
+# ── Motivo de rechazo (solo leads 'rechazado', no equiprobable) ─
+# Probabilidades realistas: la falta de respuesta y el desinterés dominan.
+MOTIVO_RECHAZO_W = {
+    'No respondió después de 7 días':      0.40,
+    'No le interesa el programa':          0.30,
+    'No está habilitado para facturar':    0.18,
+    'Perfil no cumple requisitos mínimos': 0.12,
+}
+
 # ── Influencers argentinos inyectados al pool de Jira ──────────
 # Se inyectan N_INFLUENCERS_PER_CAT por rubro (todos COUNTRY='ARG'), con alta
 # probabilidad de afiliarse y métricas por encima de la media (followers, URLs,

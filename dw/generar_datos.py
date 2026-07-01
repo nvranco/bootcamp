@@ -202,6 +202,11 @@ for cat in CATEGORIES:
                          'first': f_inf, 'last': l_inf, 'category': cat})
     influencer_pool.extend(profiles)
 
+# Motivos de rechazo y sus pesos (normalizados) para el sorteo vectorial.
+_MOTIVO_KEYS = list(MOTIVO_RECHAZO_W.keys())
+_MOTIVO_W    = np.array(list(MOTIVO_RECHAZO_W.values()), dtype=float)
+_MOTIVO_W   /= _MOTIVO_W.sum()
+
 # ── Fase 1: Generar todos los leads básicos ───────────────────────────────────
 raw_leads = []
 for i in range(N_JIRA_TOTAL):
@@ -231,6 +236,8 @@ for i in range(N_JIRA_TOTAL):
         fecha_asignacion = min(fecha_asignacion, prev_business_day(TODAY - timedelta(days=1)))
         fecha_asignacion = next_business_day(fecha_asignacion)
 
+    prioridad = int(rng.choice(PRIORITY_LEVELS, p=PRIORITY_W_NORMAL))
+
     raw_leads.append({
         '_i':               i,
         '_country':         country,
@@ -240,7 +247,10 @@ for i in range(N_JIRA_TOTAL):
         '_hunter_idx':      hunter_idx,
         '_fecha_asig':      fecha_asignacion,
         '_state':           'pool' if hunter_idx is None else None,
-        '_ultimo_contacto': None,
+        '_prioridad':       prioridad,
+        '_fecha_contacto':  None,
+        '_fecha_cierre':    None,
+        '_motivo_rechazo':  None,
         '_is_influencer':   False,
         '_inf_handle':      None,
         'NOMBRE':           nombre,
@@ -257,6 +267,7 @@ for k, prof in enumerate(influencer_pool):
     fecha_asignacion = next_business_day(fecha_asignacion)
 
     tt_handle = prof['ig_handle'] if random.random() < 0.8 else make_handle(prof['first'], prof['last'])
+    prioridad = int(rng.choice(PRIORITY_LEVELS, p=PRIORITY_W_INFLUENCER))
 
     raw_leads.append({
         '_i':               90_000 + k,
@@ -267,7 +278,10 @@ for k, prof in enumerate(influencer_pool):
         '_hunter_idx':      hunter_idx,
         '_fecha_asig':      fecha_asignacion,
         '_state':           None,
-        '_ultimo_contacto': None,
+        '_prioridad':       prioridad,
+        '_fecha_contacto':  None,
+        '_fecha_cierre':    None,
+        '_motivo_rechazo':  None,
         '_is_influencer':   True,
         '_inf_handle':      prof['ig_handle'],
         'NOMBRE':           prof['nombre'],
@@ -293,30 +307,42 @@ for h_idx in range(len(HUNTER_NAMES)):
         fecha_asig = lead['_fecha_asig']
         t = min((fecha_asig - JIRA_START).days / JIRA_PERIOD_DAYS, 1.0)
 
+        prio         = lead['_prioridad']
         team_delay   = 3.0 - 2.0 * t
         team_cr      = 0.08 + 0.10 * t
         hunter_delay = max(team_delay + HUNTER_DELAY_DELTA[hunter_name], 0.3)
-        hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name], 0.03, 0.40))
+        # La prioridad sube/baja la probabilidad de afiliar (moderado, relativo a P3).
+        hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name]
+                                     + PRIORITY_CR_DELTA[prio], 0.03, 0.40))
 
         # Los influencers siempre son contactados (no caen en la cola pendiente)
         if j < n_contact or lead['_is_influencer']:
-            # Lead ya procesado por el hunter: fue contactado
-            delay_days      = int(np.clip(rng.normal(hunter_delay, 1.5), 0, 14))
-            contact_date    = next_business_day(fecha_asig + timedelta(days=delay_days))
-            ultimo_contacto = min(contact_date, prev_business_day(TODAY - timedelta(days=1)))
-            lead['_ultimo_contacto'] = ultimo_contacto
+            # FECHA_CONTACTO: pasaje asignado → contactado
+            delay_days     = int(np.clip(rng.normal(hunter_delay, 1.5), 0, 14))
+            contact_date   = next_business_day(fecha_asig + timedelta(days=delay_days))
+            contact_date   = min(contact_date, prev_business_day(TODAY - timedelta(days=1)))
+            lead['_fecha_contacto'] = contact_date
 
             if lead['_is_influencer']:
                 # Alta conversión, nunca rechazado → llegan a fase final
-                lead['_state'] = 'afiliado' if rng.random() < INFLUENCER_AFILIADO_PROB else 'contactado'
+                inf_prob = float(np.clip(INFLUENCER_AFILIADO_PROB + PRIORITY_CR_DELTA[prio], 0.5, 0.97))
+                lead['_state'] = 'afiliado' if rng.random() < inf_prob else 'contactado'
             else:
                 r = float(rng.random())
                 if r < hunter_cr:
                     lead['_state'] = 'afiliado'
                 elif r < hunter_cr + 0.55:
                     lead['_state'] = 'rechazado'
+                    lead['_motivo_rechazo'] = str(rng.choice(_MOTIVO_KEYS, p=_MOTIVO_W))
                 else:
                     lead['_state'] = 'contactado'
+
+            # FECHA_CIERRE: pasaje contactado → afiliado/rechazado (solo si cerró)
+            if lead['_state'] in ('afiliado', 'rechazado'):
+                close_delay  = int(np.clip(rng.normal(CLOSE_DELAY_MEAN, CLOSE_DELAY_SD), 1, 30))
+                cierre       = next_business_day(contact_date + timedelta(days=close_delay))
+                cierre       = min(cierre, prev_business_day(TODAY - timedelta(days=1)))
+                lead['_fecha_cierre'] = cierre
         else:
             # Lead en cola de espera (los más recientes, cap HUNTER_MAX_QUEUE)
             lead['_state'] = 'asignado'
@@ -325,7 +351,8 @@ for h_idx in range(len(HUNTER_NAMES)):
 jira_rows = []
 for lead in raw_leads:
     fec = lead['_fecha_asig']
-    ult = lead['_ultimo_contacto']
+    fco = lead['_fecha_contacto']
+    fci = lead['_fecha_cierre']
     jira_rows.append({
         '_i':               lead['_i'],
         '_state':           lead['_state'],
@@ -336,11 +363,15 @@ for lead in raw_leads:
         '_hunter_idx':      lead['_hunter_idx'],
         '_is_influencer':   lead['_is_influencer'],
         '_inf_handle':      lead['_inf_handle'],
+        '_prioridad':       lead['_prioridad'],
         'NOMBRE':           lead['NOMBRE'],
         'INSTAGRAM':        lead['INSTAGRAM'],
         'TIKTOK':           lead['TIKTOK'],
+        'PRIORIDAD':        lead['_prioridad'],
+        'MOTIVO_RECHAZO':   lead['_motivo_rechazo'],
         'FECHA_ASIGNACION': fec.strftime('%Y-%m-%d') if fec else None,
-        'ULTIMO_CONTACTO':  ult.strftime('%Y-%m-%d') if ult else None,
+        'FECHA_CONTACTO':   fco.strftime('%Y-%m-%d') if fco else None,
+        'FECHA_CIERRE':     fci.strftime('%Y-%m-%d') if fci else None,
     })
 
 df_jira_raw = pd.DataFrame(jira_rows)
@@ -381,8 +412,9 @@ for _, row in jira_aff_df.iterrows():
     # Influencer → username derivado de su handle real (reconocible)
     username = clean(inf_handle) if is_inf else make_username(first, last, raw_i)
     uid      = int(rng.integers(10_000_000, 99_999_999))
-    _uc    = row['ULTIMO_CONTACTO']
-    joined = datetime.strptime(_uc, '%Y-%m-%d') if _uc else rand_date(JIRA_START, TODAY - timedelta(days=3))
+    # Fecha de afiliación = FECHA_CIERRE (cierre como afiliado); fallback aleatorio.
+    _fci   = row['FECHA_CIERRE']
+    joined = datetime.strptime(_fci, '%Y-%m-%d') if _fci else rand_date(JIRA_START, TODAY - timedelta(days=3))
     aid      = aff_id_seq[0]
     aff_id_seq[0] += 1
 
@@ -400,6 +432,7 @@ for _, row in jira_aff_df.iterrows():
         '_source':       'jira',
         '_is_influencer': is_inf,
         '_inf_handle':   inf_handle,
+        '_prioridad':    int(row['_prioridad']),
     })
 
 print('Afiliados Jira-sourced :', len(aff_records))
@@ -426,6 +459,7 @@ for i in range(n_organic):
         '_source':       'organic',
         '_is_influencer': False,
         '_inf_handle':   None,
+        '_prioridad':    3,   # orgánicos: prioridad neutra (no vienen de Jira)
     })
 
 df_affiliates = pd.DataFrame(aff_records)
@@ -434,6 +468,8 @@ df_affiliates['AFFILIATE_ID'] = range(1, len(df_affiliates) + 1)
 
 # IDs de afiliados influencer (para boostear followers/URLs/clicks/ventas)
 influencer_aff_ids = set(df_affiliates[df_affiliates['_is_influencer']]['AFFILIATE_ID'])
+# Mapa AFFILIATE_ID → PRIORIDAD (para escalar followers y ventas por prioridad)
+prio_map = df_affiliates.set_index('AFFILIATE_ID')['_prioridad'].to_dict()
 
 print('Total afiliados base   :', len(df_affiliates))
 print('Afiliados influencer   :', len(influencer_aff_ids))
@@ -459,11 +495,14 @@ for _, aff in df_affiliates.iterrows():
     if is_inf and 'instagram' not in chosen:
         chosen = ['instagram'] + chosen   # el influencer siempre tiene IG
 
-    # Influencer: followers por encima de la media (300K–2M)
+    # Followers escalados por prioridad (fama): más prioridad → más followers.
+    prio = int(aff['_prioridad'])
     if is_inf:
-        main_followers = int(rng.uniform(INFLUENCER_FOLLOWER_LO, INFLUENCER_FOLLOWER_HI))
+        # Influencer: 300K–2M, con un nudge extra para la elite (P5).
+        main_followers = int(rng.uniform(INFLUENCER_FOLLOWER_LO, INFLUENCER_FOLLOWER_HI)
+                             * PRIORITY_INFLU_FAME.get(prio, 1.0))
     else:
-        main_followers = int(follower_count(1)[0])
+        main_followers = int(follower_count(1)[0] * PRIORITY_FAME_MULT[prio])
 
     for j, plat in enumerate(chosen):
         if j == 0:
@@ -567,8 +606,10 @@ for _, row in df_jira_raw.iterrows():
         'HUNTER':            hunter,
         'HUNTER_JIRA_ID':    HUNTER_JIRA_ID.get(hunter),
         'NOMBRE':            row['NOMBRE'],
+        'PRIORIDAD':         int(row['_prioridad']),
         'FECHA_ASIGNACION':  row['FECHA_ASIGNACION'],
-        'ULTIMO_CONTACTO':   row['ULTIMO_CONTACTO'],
+        'FECHA_CONTACTO':    row['FECHA_CONTACTO'],
+        'FECHA_CIERRE':      row['FECHA_CIERRE'],
         'INSTAGRAM':         row['INSTAGRAM'],
         'TIKTOK':            row['TIKTOK'],
         'ESTADO':     state,
@@ -576,6 +617,7 @@ for _, row in df_jira_raw.iterrows():
         'CONTACTADO': state in ('contactado', 'afiliado', 'rechazado'),
         'AFILIADO':   state == 'afiliado',
         'RECHAZADO':  state == 'rechazado',
+        'MOTIVO_RECHAZO':    row['MOTIVO_RECHAZO'],
     })
 
 df_facts_jira = pd.DataFrame(jira_out)
@@ -593,12 +635,12 @@ def _td(days):
     return (JIRA_START + timedelta(days=days)).strftime('%Y-%m-%d')
 
 _test_rows = [
-    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'FECHA_ASIGNACION':_td(60),'ULTIMO_CONTACTO':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'FECHA_ASIGNACION':_td(45),'ULTIMO_CONTACTO':_td(47),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','FECHA_ASIGNACION':_td(50),'ULTIMO_CONTACTO':_td(52),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'FECHA_ASIGNACION':_td(70),'ULTIMO_CONTACTO':_td(72),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True},
-    {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'FECHA_ASIGNACION':None,    'ULTIMO_CONTACTO':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False},
-    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'FECHA_ASIGNACION':_td(55),'ULTIMO_CONTACTO':_td(57),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False},
+    {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'PRIORIDAD':3,'FECHA_ASIGNACION':_td(60),'FECHA_CONTACTO':None,    'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'PRIORIDAD':2,'FECHA_ASIGNACION':_td(45),'FECHA_CONTACTO':_td(47),'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','PRIORIDAD':5,'FECHA_ASIGNACION':_td(50),'FECHA_CONTACTO':_td(52),'FECHA_CIERRE':_td(56),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'PRIORIDAD':3,'FECHA_ASIGNACION':_td(70),'FECHA_CONTACTO':_td(72),'FECHA_CIERRE':_td(75),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True, 'MOTIVO_RECHAZO':'No respondió después de 7 días'},
+    {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'PRIORIDAD':3,'FECHA_ASIGNACION':None,    'FECHA_CONTACTO':None,    'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'PRIORIDAD':4,'FECHA_ASIGNACION':_td(55),'FECHA_CONTACTO':_td(57),'FECHA_CIERRE':_td(60),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
 ]
 df_facts_jira = pd.concat([df_facts_jira, pd.DataFrame(_test_rows)], ignore_index=True)
 print(f'  >> {len(_test_rows)} leads de test inyectados (HUNT-99980 a HUNT-99985)')
@@ -612,6 +654,16 @@ print('  RECHAZADO :', df_facts_jira['RECHAZADO'].sum())
 print('  pool      :', (~df_facts_jira['ASIGNADO']).sum())
 print('\nDistribución por hunter (leads asignados):')
 print(df_facts_jira[df_facts_jira['HUNTER'].notna()]['HUNTER'].value_counts().to_string())
+
+print('\nDistribución de PRIORIDAD (todos los leads):')
+_pri = df_facts_jira['PRIORIDAD'].value_counts(normalize=True).sort_index()
+for lvl, frac in _pri.items():
+    print(f'  P{lvl}: {frac*100:5.1f}%')
+_inf_pri = df_jira_raw[df_jira_raw['_is_influencer']]['_prioridad'].value_counts().sort_index()
+print('  Influencers por prioridad:', _inf_pri.to_dict())
+
+print('\nMotivos de rechazo:')
+print(df_facts_jira[df_facts_jira['RECHAZADO']]['MOTIVO_RECHAZO'].value_counts(normalize=True).round(3).to_string())
 
 
 # ================================================================
@@ -885,6 +937,8 @@ for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
     n_sales        = max(JIRA_SALES_FLOOR, int(rng.lognormal(mean=JIRA_SALES_MU, sigma=JIRA_SALES_SIGMA)))
     if aff_id in influencer_aff_ids:
         n_sales = int(n_sales * INFLUENCER_SALES_MULT)   # influencer vende más
+    # Prioridad escala las ventas (plata): P5 vende más, P2 menos.
+    n_sales = max(JIRA_SALES_FLOOR, int(n_sales * PRIORITY_SALES_MULT[prio_map.get(aff_id, 3)]))
 
     for _ in range(n_sales):
         url_row  = group.sample(1).iloc[0]
@@ -917,6 +971,17 @@ if jira_sales_records:
     df_jira_guaranteed = pd.DataFrame(jira_sales_records)
     df_facts_sales     = pd.concat([df_facts_sales, df_jira_guaranteed], ignore_index=True)
     print(f'Ventas garantizadas Jira   : {len(df_jira_guaranteed):,}  ({len(jira_aff_ids)} afiliados)')
+
+    # Gradiente por prioridad (afiliados Jira): confirma que más prioridad = más plata/fama
+    _g = df_jira_guaranteed.copy()
+    _g['PRIORIDAD']  = _g['AFFILIATE_ID'].map(prio_map)
+    _fw = df_dim_affiliates.set_index('AFFILIATE_ID')['INSTAGRAM_FOLLOWER_COUNT'].to_dict()
+    _g['FOLLOWERS']  = _g['AFFILIATE_ID'].map(_fw)
+    print('  Gradiente por prioridad (afiliados Jira):')
+    for lvl, grp in _g.groupby('PRIORIDAD'):
+        ventas_x_aff = len(grp) / grp['AFFILIATE_ID'].nunique()
+        fw_prom      = grp.drop_duplicates('AFFILIATE_ID')['FOLLOWERS'].mean()
+        print(f'    P{int(lvl)}: {ventas_x_aff:5.1f} ventas/afiliado  ·  followers IG prom {fw_prom:,.0f}')
 
 # ── Ventas estacionales (eventos) ────────────────────────────────────────────
 # Se inyectan ventas extra en el período de cada evento para que el gráfico
@@ -993,8 +1058,10 @@ EXPORT_COLS = {
     ],
     'FACTS_JIRA_HUNTING_AFILIADOS': [
         'JIRA_KEY', 'MELI_USERNAME', 'HUNTER', 'HUNTER_JIRA_ID', 'NOMBRE',
-        'FECHA_ASIGNACION', 'ULTIMO_CONTACTO', 'INSTAGRAM', 'TIKTOK',
+        'PRIORIDAD', 'FECHA_ASIGNACION', 'FECHA_CONTACTO', 'FECHA_CIERRE',
+        'INSTAGRAM', 'TIKTOK',
         'ESTADO', 'ASIGNADO', 'CONTACTADO', 'AFILIADO', 'RECHAZADO',
+        'MOTIVO_RECHAZO',
     ],
     'FACTS_MARKETPLACE_AFFILIATE_URLS': [
         'URL', 'AFFILIATE_ID', 'MARKETPLACE_PRODUCT_ID', 'CREATED_AT', 'CLOSED_AT',
