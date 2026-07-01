@@ -606,7 +606,9 @@ for _, row in df_jira_raw.iterrows():
         'HUNTER':            hunter,
         'HUNTER_JIRA_ID':    HUNTER_JIRA_ID.get(hunter),
         'NOMBRE':            row['NOMBRE'],
-        'PRIORIDAD':         int(row['_prioridad']),
+        # Invertida al id de prioridad de Jira (1=Highest … 5=Lowest):
+        # nuestra importancia 5 (máxima) → id 1 (Highest), 2 (mínima) → id 4 (Low).
+        'PRIORIDAD':         6 - int(row['_prioridad']),
         'FECHA_ASIGNACION':  row['FECHA_ASIGNACION'],
         'FECHA_CONTACTO':    row['FECHA_CONTACTO'],
         'FECHA_CIERRE':      row['FECHA_CIERRE'],
@@ -636,11 +638,11 @@ def _td(days):
 
 _test_rows = [
     {'JIRA_KEY':'HUNT-99980','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'Test',        'PRIORIDAD':3,'FECHA_ASIGNACION':_td(60),'FECHA_CONTACTO':None,    'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'asignado',  'ASIGNADO':True, 'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
-    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'PRIORIDAD':2,'FECHA_ASIGNACION':_td(45),'FECHA_CONTACTO':_td(47),'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
-    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','PRIORIDAD':5,'FECHA_ASIGNACION':_td(50),'FECHA_CONTACTO':_td(52),'FECHA_CIERRE':_td(56),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99981','MELI_USERNAME':None,               'HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Lead',   'PRIORIDAD':4,'FECHA_ASIGNACION':_td(45),'FECHA_CONTACTO':_td(47),'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'contactado','ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99982','MELI_USERNAME':'test_afiliado_001','HUNTER':'Nicolás Vrancovich','HUNTER_JIRA_ID':_ID_NICO,'NOMBRE':'test_usuario','PRIORIDAD':1,'FECHA_ASIGNACION':_td(50),'FECHA_CONTACTO':_td(52),'FECHA_CIERRE':_td(56),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
     {'JIRA_KEY':'HUNT-99983','MELI_USERNAME':None,               'HUNTER':'Federico Quinteros','HUNTER_JIRA_ID':_ID_FEDE,'NOMBRE':'TEST DUMMY',  'PRIORIDAD':3,'FECHA_ASIGNACION':_td(70),'FECHA_CONTACTO':_td(72),'FECHA_CIERRE':_td(75),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'rechazado', 'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':False,'RECHAZADO':True, 'MOTIVO_RECHAZO':'No respondió después de 7 días'},
     {'JIRA_KEY':'HUNT-99984','MELI_USERNAME':None,               'HUNTER':None,                'HUNTER_JIRA_ID':None,    'NOMBRE':'Prueba Test', 'PRIORIDAD':3,'FECHA_ASIGNACION':None,    'FECHA_CONTACTO':None,    'FECHA_CIERRE':None,    'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'pool',      'ASIGNADO':False,'CONTACTADO':False,'AFILIADO':False,'RECHAZADO':False,'MOTIVO_RECHAZO':None},
-    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'PRIORIDAD':4,'FECHA_ASIGNACION':_td(55),'FECHA_CONTACTO':_td(57),'FECHA_CIERRE':_td(60),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
+    {'JIRA_KEY':'HUNT-99985','MELI_USERNAME':'test_afiliado_002','HUNTER':'Francisco Rodriguez','HUNTER_JIRA_ID':_ID_FRAN,'NOMBRE':'Test Nico',   'PRIORIDAD':2,'FECHA_ASIGNACION':_td(55),'FECHA_CONTACTO':_td(57),'FECHA_CIERRE':_td(60),'INSTAGRAM':None,'TIKTOK':None,'ESTADO':'afiliado',  'ASIGNADO':True, 'CONTACTADO':True, 'AFILIADO':True, 'RECHAZADO':False,'MOTIVO_RECHAZO':None},
 ]
 df_facts_jira = pd.concat([df_facts_jira, pd.DataFrame(_test_rows)], ignore_index=True)
 print(f'  >> {len(_test_rows)} leads de test inyectados (HUNT-99980 a HUNT-99985)')
@@ -655,10 +657,10 @@ print('  pool      :', (~df_facts_jira['ASIGNADO']).sum())
 print('\nDistribución por hunter (leads asignados):')
 print(df_facts_jira[df_facts_jira['HUNTER'].notna()]['HUNTER'].value_counts().to_string())
 
-print('\nDistribución de PRIORIDAD (todos los leads):')
+print('\nDistribución de PRIORIDAD (id Jira: 1=Highest … 4=Low):')
 _pri = df_facts_jira['PRIORIDAD'].value_counts(normalize=True).sort_index()
 for lvl, frac in _pri.items():
-    print(f'  P{lvl}: {frac*100:5.1f}%')
+    print(f'  id {lvl}: {frac*100:5.1f}%')
 _inf_pri = df_jira_raw[df_jira_raw['_is_influencer']]['_prioridad'].value_counts().sort_index()
 print('  Influencers por prioridad:', _inf_pri.to_dict())
 

@@ -50,7 +50,7 @@ SCHEMAS = {
         bigquery.SchemaField('HUNTER',           'STRING',  description='Nombre del hunter asignado (displayName en Jira)'),
         bigquery.SchemaField('HUNTER_JIRA_ID',   'STRING',  description='accountId del hunter en Jira (NULL si lead en pool)'),
         bigquery.SchemaField('NOMBRE',           'STRING',  description='Nombre del prospecto'),
-        bigquery.SchemaField('PRIORIDAD',        'INTEGER', description='Prioridad del lead (2=baja · 3=media · 4=alta · 5=máxima)'),
+        bigquery.SchemaField('PRIORIDAD',        'INTEGER', description='Prioridad como id de Jira (1=Highest · 2=High · 3=Medium · 4=Low)'),
         bigquery.SchemaField('FECHA_ASIGNACION', 'DATE',    description='Fecha en que se asignó el lead al hunter'),
         bigquery.SchemaField('FECHA_CONTACTO',   'DATE',    description='Fecha del pasaje asignado→contactado (NULL si aún no se contactó)'),
         bigquery.SchemaField('FECHA_CIERRE',     'DATE',    description='Fecha del pasaje contactado→afiliado/rechazado (NULL si sigue abierto)'),
