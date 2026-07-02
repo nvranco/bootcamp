@@ -309,7 +309,7 @@ for h_idx in range(len(HUNTER_NAMES)):
 
         prio         = lead['_prioridad']
         team_delay   = 3.0 - 2.0 * t
-        team_cr      = 0.08 + 0.10 * t
+        team_cr      = TEAM_CR_START + (TEAM_CR_END - TEAM_CR_START) * t
         hunter_delay = max(team_delay + HUNTER_DELAY_DELTA[hunter_name], 0.3)
         # La prioridad sube/baja la probabilidad de afiliar (moderado, relativo a P3).
         hunter_cr    = float(np.clip(team_cr + HUNTER_CR_DELTA[hunter_name]
@@ -325,7 +325,8 @@ for h_idx in range(len(HUNTER_NAMES)):
 
             if lead['_is_influencer']:
                 # Alta conversión, nunca rechazado → llegan a fase final
-                inf_prob = float(np.clip(INFLUENCER_AFILIADO_PROB + PRIORITY_CR_DELTA[prio], 0.5, 0.97))
+                inf_prob = float(np.clip(INFLU_CR_START + (INFLU_CR_END - INFLU_CR_START) * t
+                                         + PRIORITY_CR_DELTA[prio], 0.10, 0.97))
                 lead['_state'] = 'afiliado' if rng.random() < inf_prob else 'contactado'
             else:
                 r = float(rng.random())

@@ -207,7 +207,16 @@ HUNTER_W          = (HUNTER_THROUGHPUT / HUNTER_THROUGHPUT.sum()).tolist()
 # Cada semana recibe un multiplicador LogNormal(0, σ) independiente.
 # σ=0.22 → la mayoría de las semanas está entre ±25 % del promedio;
 # ocasionalmente alguna semana cae a ~0.6× o sube a ~1.5×.
-HUNTER_WEEKLY_NOISE_SIGMA = 0.22
+HUNTER_WEEKLY_NOISE_SIGMA = 0.10   # ↓ menos volatilidad semanal (muestras más parejas)
+
+# ── Conversión (afiliación): tendencia temporal ───────────────────────────────
+# La probabilidad de afiliar rampea a lo largo del período: el programa "arranca
+# mal y termina mucho mejor". Aplica a leads normales; los influencers tienen su
+# propia rampa (más alta) para que no metan picos de conversión al inicio.
+TEAM_CR_START  = 0.02   # prob. base de afiliar al inicio del período (leads normales)
+TEAM_CR_END    = 0.35   # prob. base al final (pendiente fuerte → tendencia clara)
+INFLU_CR_START = 0.25   # influencers: conversión al inicio (antes plano en 0.80)
+INFLU_CR_END   = 0.97   # influencers: conversión al final
 
 # ── Feriados nacionales de Argentina (sin actividad de hunting) ──
 # Usado en next_business_day / prev_business_day para correr fechas.
