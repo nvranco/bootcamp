@@ -25,7 +25,7 @@ PROGRAM_LAUNCH = {
 
 # ── Escala ─────────────────────────────────────────────────────
 N_AFFILIATES         = 50_000   # total de afiliados en el programa
-N_JIRA_TOTAL         = 6_700    # total de leads en el tablero Jira (dimensionado para ~6.850 contactos)
+N_JIRA_TOTAL         = 838      # total de leads en el tablero Jira (~950 filas con influencers)
 N_PRODUCT_POOL       = 12_000   # productos en el pool del marketplace
 N_TARGET_ACCESS_LOGS = 100_000  # volumen total de access logs (clics)
 
@@ -263,10 +263,10 @@ SALES_EVENTS = [
 # Ramp-up de contactos por semana (hunter promedio).
 # Progresión logarítmica: sube rápido en las primeras HUNTER_RAMP_WEEKS semanas
 # y se estabiliza en HUNTER_RATE_MAX a partir de ahí.
-HUNTER_RATE_START  =  50.0   # contactos/semana al inicio del período
-HUNTER_RATE_MAX    = 120.0   # contactos/semana al estabilizarse
+HUNTER_RATE_START  =   4.5   # contactos/semana al inicio del período
+HUNTER_RATE_MAX    =  11.0   # contactos/semana al estabilizarse
 HUNTER_RAMP_WEEKS  =   12.0   # semanas para alcanzar la tasa máxima
-HUNTER_MAX_QUEUE   =   100   # máx leads en 'asignado' por hunter al cierre
+HUNTER_MAX_QUEUE   =    12   # máx leads en 'asignado' por hunter al cierre
 
 # Offset de tiempo de respuesta vs. la media del equipo (días; negativo = más rápido)
 # Alineado con el volumen de contactos: más actividad → responde más rápido.
@@ -286,7 +286,7 @@ HUNTER_CR_DELTA = {
 
 # ── Funnel Jira ────────────────────────────────────────────────
 JIRA_FUNNEL = {
-    'pool':       0.06,   # ~0.06 × N_JIRA_TOTAL ≈ 400 leads sin asignar en el pool
+    'pool':       0.33,   # ~⅓ de los leads quedan sin asignar → ~30% del board en Pool
     'asignado':   0.10,
     'contactado': 0.10,
     'rechazado':  0.16,
@@ -330,7 +330,7 @@ MOTIVO_RECHAZO_W = {
 # Se inyectan N_INFLUENCERS_PER_CAT por rubro (todos COUNTRY='ARG'), con alta
 # probabilidad de afiliarse y métricas por encima de la media (followers, URLs,
 # clicks, ventas). No llevan flag en los datos: destacan solo por sus métricas.
-N_INFLUENCERS_PER_CAT    = 100      # influencers por rubro (9 rubros ≈ 900)
+N_INFLUENCERS_PER_CAT    = 12       # influencers por rubro (9 rubros ≈ 108)
 INFLUENCER_AFILIADO_PROB = 0.80     # prob. de cerrar como 'afiliado' (resto 'contactado')
 INFLUENCER_FOLLOWER_LO   = 300_000  # piso de followers de influencer
 INFLUENCER_FOLLOWER_HI   = 2_000_000
