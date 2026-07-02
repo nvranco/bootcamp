@@ -624,6 +624,17 @@ for _, row in df_jira_raw.iterrows():
 
 df_facts_jira = pd.DataFrame(jira_out)
 
+# ── Poda del Pool: se conservan solo ~POOL_KEEP leads sin asignar ────────────
+# Los leads en 'pool' no generan datos aguas abajo, así que descartar el sobrante
+# solo achica el tablero final (no toca afiliados, ventas ni el resto de tablas).
+_pool_idx = df_facts_jira.index[df_facts_jira['ESTADO'] == 'pool']
+if len(_pool_idx) > POOL_KEEP:
+    # RNG propio: la poda no debe correr el estado del rng global (afectaría las ventas)
+    _prune_rng = np.random.default_rng(SEED + 11)
+    _drop = _prune_rng.choice(_pool_idx.values, size=len(_pool_idx) - POOL_KEEP, replace=False)
+    df_facts_jira = df_facts_jira.drop(_drop).reset_index(drop=True)
+    print(f'  >> Pool podado: {len(_pool_idx)} -> {POOL_KEEP} leads sin asignar')
+
 # ── Leads de test — para ejercicio de filtrado SQL del bootcamp ──────────────
 # Detección: LOWER(NOMBRE) LIKE '%test%'
 _ID_FEDE = HUNTER_JIRA_ID['Federico Quinteros']
@@ -922,6 +933,11 @@ print('Ventas orgánicas       :', f'{len(df_facts_sales):,}', f'(conv. rate {re
 jira_aff_ids   = set(df_affiliates[df_affiliates['_source'] == 'jira']['AFFILIATE_ID'])
 aff_joined_map = df_affiliates.set_index('AFFILIATE_ID')['_joined'].to_dict()
 
+# Ballenas Jira: subconjunto aleatorio de afiliados del hunting con ventas ×JIRA_WHALE_SALES_MULT
+_jira_ids_sorted = sorted(jira_aff_ids)
+_n_whales        = min(JIRA_WHALE_COUNT, len(_jira_ids_sorted))
+jira_whale_ids   = set(rng.choice(_jira_ids_sorted, size=_n_whales, replace=False).tolist()) if _n_whales else set()
+
 df_urls['_created_dt_dt'] = pd.to_datetime(df_urls['_created_dt'])
 df_urls['_aff_joined']    = pd.to_datetime(df_urls['AFFILIATE_ID'].map(aff_joined_map))
 
@@ -941,16 +957,24 @@ for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
         n_sales = int(n_sales * INFLUENCER_SALES_MULT)   # influencer vende más
     # Prioridad escala las ventas (plata): P5 vende más, P2 menos.
     n_sales = max(JIRA_SALES_FLOOR, int(n_sales * PRIORITY_SALES_MULT[prio_map.get(aff_id, 3)]))
+    # Volumen global de facturación Jira + ballenas (solo cantidad, no ticket)
+    n_sales = int(n_sales * JIRA_SALES_VOLUME_MULT)
+    if aff_id in jira_whale_ids:
+        n_sales = int(n_sales * JIRA_WHALE_SALES_MULT)
 
-    for _ in range(n_sales):
-        url_row  = group.sample(1).iloc[0]
-        url      = url_row['URL']
-        pid      = url_row['MARKETPLACE_PRODUCT_ID']
+    # Sampleo de URLs vectorizado (evita group.sample por fila con n_sales grande)
+    urls_arr   = group['URL'].values
+    pids_arr   = group['MARKETPLACE_PRODUCT_ID'].values
+    pick       = rng.integers(0, len(urls_arr), size=n_sales)
+    days_range = max((first_week_end - joined).days, 1)
+
+    for k in range(n_sales):
+        url      = str(urls_arr[pick[k]])
+        pid      = pids_arr[pick[k]]
         country  = url_to_country.get(url, 'BRA')
         currency = CURRENCY_MAP[country]
         price    = rand_price(country)
 
-        days_range  = max((first_week_end - joined).days, 1)
         purchase_dt = joined + timedelta(
             days    = int(rng.integers(0, days_range)),
             hours   = int(rng.integers(8, 22)),
@@ -972,7 +996,7 @@ for aff_id, group in jira_first_week_urls.groupby('AFFILIATE_ID'):
 if jira_sales_records:
     df_jira_guaranteed = pd.DataFrame(jira_sales_records)
     df_facts_sales     = pd.concat([df_facts_sales, df_jira_guaranteed], ignore_index=True)
-    print(f'Ventas garantizadas Jira   : {len(df_jira_guaranteed):,}  ({len(jira_aff_ids)} afiliados)')
+    print(f'Ventas garantizadas Jira   : {len(df_jira_guaranteed):,}  ({len(jira_aff_ids)} afiliados, {len(jira_whale_ids)} ballenas)')
 
     # Gradiente por prioridad (afiliados Jira): confirma que más prioridad = más plata/fama
     _g = df_jira_guaranteed.copy()

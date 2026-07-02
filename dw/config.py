@@ -45,6 +45,14 @@ JIRA_SALES_MU    = 3.2    # ln(mediana) — mediana ≈ 25 ventas por afiliado
 JIRA_SALES_SIGMA = 0.8    # σ — p5 ≈ 7, p95 ≈ 91, p99 ≈ 145 ventas
 JIRA_SALES_FLOOR = 5      # piso absoluto (independiente de SALES_MULTIPLIER)
 
+# Volumen de facturación de afiliados Jira: para llevar su facturación por encima
+# de USD 2M se multiplica la CANTIDAD de ventas garantizadas por afiliado (el ticket
+# no se toca). Ver Sección 9 en generar_datos.py.
+JIRA_SALES_VOLUME_MULT = 3.1   # multiplicador global de ventas por afiliado Jira
+# Ballenas Jira: unos pocos afiliados del hunting con ventas desproporcionadas.
+JIRA_WHALE_COUNT       = 15    # cantidad de afiliados Jira "ballena"
+JIRA_WHALE_SALES_MULT  = 10    # multiplicador de ventas de cada ballena (encima del global)
+
 # ── Países ─────────────────────────────────────────────────────
 COUNTRIES = ['BRA', 'MEX', 'ARG', 'CHI']
 COUNTRY_W = [0.30,  0.30,  0.20,  0.20]
@@ -286,12 +294,18 @@ HUNTER_CR_DELTA = {
 
 # ── Funnel Jira ────────────────────────────────────────────────
 JIRA_FUNNEL = {
-    'pool':       0.33,   # ~⅓ de los leads quedan sin asignar → ~30% del board en Pool
+    'pool':       0.33,   # fracción de leads que quedan sin asignar durante la simulación
     'asignado':   0.10,
     'contactado': 0.10,
     'rechazado':  0.16,
     'afiliado':   0.04,
 }
+
+# Poda del Pool al cierre: tras correr la simulación se descartan los leads sobrantes
+# en estado 'pool' hasta dejar ~POOL_KEEP. Los leads en pool no tienen datos aguas
+# abajo (ni afiliados ni ventas), así que la poda solo achica el tablero final sin
+# afectar el resto de las tablas ni la facturación.
+POOL_KEEP = 50
 
 # ── Componente random en NOMBRE (FACTS_JIRA_HUNTING_AFILIADOS) ──
 # Probabilidad de que el NOMBRE del lead sea su handle de Instagram en vez del
